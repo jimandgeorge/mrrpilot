@@ -1,9 +1,10 @@
 "use client";
 
 import "./globals.css";
-import { ReactNode } from "react";
-import { usePathname } from "next/navigation";
+import { ReactNode, useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
 
 export default function RootLayout({
@@ -12,12 +13,28 @@ export default function RootLayout({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const isLogin = pathname === "/login";
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session && !isLogin) router.replace("/login");
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") router.replace("/login");
+      if (event === "SIGNED_IN" && isLogin) router.replace("/");
+    });
+
+    return () => subscription.unsubscribe();
+  }, [isLogin, router]);
+
   return (
     <html lang="en">
       <body className="min-h-screen bg-gray-50 flex">
 
         {/* Sidebar */}
-        <div className="w-64 bg-white border-r border-gray-200 p-6 relative">
+        {!isLogin && <div className="w-64 bg-white border-r border-gray-200 p-6 relative">
           <div className="mb-8">
   <h2 className="text-xl font-semibold">MRRPilot</h2>
   <p className="text-xs text-gray-500">
@@ -72,7 +89,7 @@ export default function RootLayout({
     </p>
   </div>
 </div>
-        </div>
+        </div>}
 
         {/* Main Content */}
         <div className="flex-1 p-8">
