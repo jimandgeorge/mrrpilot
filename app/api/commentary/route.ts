@@ -12,15 +12,28 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const metrics = await request.json();
-  const message = await anthropic.messages.create({
+  const stream = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 200,
     messages: [{ role: "user", content: buildPrompt(metrics) }],
+    stream: true,
   });
 
-  const content = message.content[0];
-  const text = content.type === "text" ? content.text : "";
-  return NextResponse.json({ commentary: text });
+  const encoder = new TextEncoder();
+  const readable = new ReadableStream({
+    async start(controller) {
+      for await (const chunk of stream) {
+        if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
+          controller.enqueue(encoder.encode(chunk.delta.text));
+        }
+      }
+      controller.close();
+    },
+  });
+
+  return new Response(readable, {
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+  });
 }
 
 function buildPrompt(m: {

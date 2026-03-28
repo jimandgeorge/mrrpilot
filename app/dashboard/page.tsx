@@ -158,8 +158,15 @@ export default function Home() {
         },
         body: JSON.stringify(metrics),
       });
-      const data = await res.json();
-      if (data.commentary) setCommentary(data.commentary);
+      if (!res.ok || !res.body) return;
+      setCommentaryLoading(false);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        setCommentary((prev) => prev + decoder.decode(value, { stream: true }));
+      }
     } catch {
       // Commentary is non-critical — fail silently
     }
