@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Search, Download, ArrowRight } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 type Customer = {
+  id: string;
   email: string;
   total: number;
   payments: number;
@@ -20,52 +24,94 @@ function daysSince(date: Date | string) {
   return (Date.now() - new Date(date).getTime()) / (1000 * 60 * 60 * 24);
 }
 
+type Filter = "all" | "active" | "at_risk" | "churned";
+
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [churnReasonMap, setChurnReasonMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [notConnected, setNotConnected] = useState(false);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
 
   useEffect(() => {
-    fetch("/api/stripe")
-      .then((res) => res.json())
-      .then((data) => {
-        const sorted = (data.customers || []).sort(
-          (a: any, b: any) => b.total - a.total
-        );
-        // Build email → most recent churn reason map
-        const reasonMap: Record<string, string> = {};
-        const churnEvents: ChurnEvent[] = data.churnEvents || [];
-        churnEvents
-          .sort((a, b) => b.cancelledAt - a.cancelledAt)
-          .forEach((e) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const token = session?.access_token ?? "";
+      fetch("/api/stripe", { headers: { Authorization: `Bearer ${token}` } })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.notConnected) { setNotConnected(true); setLoading(false); return; }
+          const sorted = (data.customers || []).sort((a: any, b: any) => b.total - a.total);
+          const reasonMap: Record<string, string> = {};
+          const churnEvents: ChurnEvent[] = data.churnEvents || [];
+          churnEvents.sort((a, b) => b.cancelledAt - a.cancelledAt).forEach((e) => {
             if (!reasonMap[e.email]) reasonMap[e.email] = e.label;
           });
-        setChurnReasonMap(reasonMap);
-        setCustomers(sorted);
-        setLoading(false);
-      });
+          setChurnReasonMap(reasonMap);
+          setCustomers(sorted);
+          setLoading(false);
+        });
+    });
   }, []);
+
+  function exportCSV() {
+    const rows = [
+      ["Email", "Total (£)", "Payments", "Avg Payment (£)", "Last Payment", "Status", "Churn Reason"],
+      ...customers.map((c) => {
+        const avg = c.payments > 0 ? c.total / c.payments : 0;
+        const isAtRisk = !c.churned && daysSince(c.lastPayment) > 30;
+        const status = c.churned ? "Churned" : isAtRisk ? "At Risk" : "Active";
+        return [
+          c.email,
+          (c.total / 100).toFixed(2),
+          c.payments,
+          (avg / 100).toFixed(2),
+          new Date(c.lastPayment).toLocaleDateString("en-GB"),
+          status,
+          c.churned ? (churnReasonMap[c.email] || "") : "",
+        ];
+      }),
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `customers-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  if (notConnected) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[70vh] text-center px-6">
+        <div className="text-4xl mb-4">🔌</div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Connect your Stripe account</h2>
+        <p className="text-sm text-gray-400 mb-6 max-w-xs">Add your Stripe secret key in Settings to start seeing your customer data.</p>
+        <a href="/settings" className="bg-indigo-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition-colors">Go to Settings →</a>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-semibold">Customers</h1>
-          <p className="text-gray-500 mt-1">See who is driving your revenue</p>
-        </div>
-        <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="max-w-5xl mx-auto py-8 px-6 space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-2xl p-4 animate-pulse">
-              <div className="h-3 bg-gray-200 rounded w-1/2 mb-2" />
-              <div className="h-6 bg-gray-200 rounded w-3/4" />
+            <div key={i} className="bg-white border border-gray-200 rounded-2xl p-5 animate-pulse space-y-2">
+              <div className="h-3 bg-gray-200 rounded w-1/2" />
+              <div className="h-7 bg-gray-200 rounded w-3/4" />
             </div>
           ))}
         </div>
-        <div className="space-y-3">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="p-5 bg-white border border-gray-200 rounded-2xl animate-pulse flex justify-between items-center">
-              <div className="h-4 bg-gray-200 rounded w-1/3" />
-              <div className="h-4 bg-gray-200 rounded w-1/6" />
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden animate-pulse">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="flex items-center gap-4 px-6 py-4 border-b border-gray-50">
+              <div className="w-8 h-8 rounded-full bg-gray-200 shrink-0" />
+              <div className="flex-1 h-3 bg-gray-200 rounded w-1/3" />
+              <div className="h-3 bg-gray-200 rounded w-16" />
+              <div className="h-3 bg-gray-200 rounded w-12" />
+              <div className="h-3 bg-gray-200 rounded w-20" />
             </div>
           ))}
         </div>
@@ -74,154 +120,169 @@ export default function CustomersPage() {
   }
 
   const activeCustomers = customers.filter((c) => !c.churned);
-  const atRiskCustomers = customers.filter(
-    (c) => !c.churned && daysSince(c.lastPayment) > 30
-  );
-  const topCustomers = activeCustomers.slice(0, 3);
-  const avgCLTV =
-    customers.length > 0
-      ? customers.reduce((sum, c) => sum + c.total, 0) / customers.length
-      : 0;
+  const atRiskCustomers = customers.filter((c) => !c.churned && daysSince(c.lastPayment) > 30);
+  const churnedCustomers = customers.filter((c) => c.churned);
+  const avgCLTV = customers.length > 0 ? customers.reduce((s, c) => s + c.total, 0) / customers.length : 0;
+
+  // Filter + search
+  const filtered = customers.filter((c) => {
+    const isAtRisk = !c.churned && daysSince(c.lastPayment) > 30;
+    const matchesFilter =
+      filter === "all" ? true
+      : filter === "active" ? (!c.churned && !isAtRisk)
+      : filter === "at_risk" ? isAtRisk
+      : c.churned;
+    const matchesSearch = c.email.toLowerCase().includes(search.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
+
+  const filterOptions: { key: Filter; label: string; count: number }[] = [
+    { key: "all",      label: "All",      count: customers.length },
+    { key: "active",   label: "Active",   count: activeCustomers.length - atRiskCustomers.length },
+    { key: "at_risk",  label: "At risk",  count: atRiskCustomers.length },
+    { key: "churned",  label: "Churned",  count: churnedCustomers.length },
+  ];
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto py-8 px-6 space-y-6">
 
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold">Customers</h1>
-        <p className="text-gray-500 mt-1">See who is driving your revenue</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold text-gray-900">Customers</h1>
+          <p className="text-xs text-gray-500 mt-0.5">See who is driving your revenue</p>
+        </div>
+        <button onClick={exportCSV} className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg transition-colors">
+          <Download size={13} className="inline mr-1" />Export CSV
+        </button>
       </div>
 
-      {/* Summary Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-        <div className="bg-white border border-gray-200 rounded-2xl p-4">
-          <p className="text-xs text-gray-500 mb-1">Total Customers</p>
-          <p className="text-2xl font-semibold">{customers.length}</p>
+      {/* Summary stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white border border-gray-200 rounded-2xl p-5">
+          <p className="text-xs font-semibold text-gray-500 mb-1.5">Total</p>
+          <p className="text-2xl font-bold text-gray-900">{customers.length}</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-2xl p-4">
-          <p className="text-xs text-gray-500 mb-1">Active</p>
-          <p className="text-2xl font-semibold text-green-600">{activeCustomers.length}</p>
+        <div className="bg-white border border-gray-200 rounded-2xl p-5">
+          <p className="text-xs font-semibold text-gray-500 mb-1.5">Active</p>
+          <p className="text-2xl font-bold text-green-600">{activeCustomers.length}</p>
         </div>
-        <div className={`border rounded-2xl p-4 ${atRiskCustomers.length > 0 ? "bg-yellow-50 border-yellow-200" : "bg-white border-gray-200"}`}>
-          <p className="text-xs text-gray-500 mb-1">At Risk</p>
-          <p className={`text-2xl font-semibold ${atRiskCustomers.length > 0 ? "text-yellow-700" : ""}`}>{atRiskCustomers.length}</p>
+        <div className={`border rounded-2xl p-5 ${atRiskCustomers.length > 0 ? "bg-amber-50 border-amber-200" : "bg-white border-gray-200"}`}>
+          <p className="text-xs font-semibold text-gray-500 mb-1.5">At Risk</p>
+          <p className={`text-2xl font-bold ${atRiskCustomers.length > 0 ? "text-amber-600" : "text-gray-900"}`}>{atRiskCustomers.length}</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-2xl p-4">
-          <p className="text-xs text-gray-500 mb-1">Avg CLTV</p>
-          <p className="text-2xl font-semibold">£{(avgCLTV / 100).toFixed(0)}</p>
+        <div className="bg-white border border-gray-200 rounded-2xl p-5">
+          <p className="text-xs font-semibold text-gray-500 mb-1.5">Avg CLTV</p>
+          <p className="text-2xl font-bold text-gray-900">£{(avgCLTV / 100).toFixed(0)}</p>
         </div>
       </div>
 
-      {/* Top Customers */}
-      {topCustomers.length > 0 && (
-        <div className="mb-10">
-          <h2 className="text-sm font-medium text-gray-500 mb-3">Top Customers</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {topCustomers.map((c, i) => {
-              const avgPayment = c.payments > 0 ? c.total / c.payments : 0;
-              const medals = ["🥇", "🥈", "🥉"];
-              return (
-                <div key={i} className="bg-white border border-gray-200 rounded-2xl p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-lg">{medals[i]}</span>
-                    <p className="font-medium text-sm truncate">{c.email}</p>
-                  </div>
-                  <p className="text-3xl font-semibold mb-3">
-                    £{(c.total / 100).toFixed(2)}
-                  </p>
-                  <div className="space-y-1 text-xs text-gray-500">
-                    <div className="flex justify-between">
-                      <span>Payments</span>
-                      <span className="font-medium text-gray-700">{c.payments}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Avg payment</span>
-                      <span className="font-medium text-gray-700">£{(avgPayment / 100).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Last payment</span>
-                      <span className="font-medium text-gray-700">{new Date(c.lastPayment).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+      {/* Table */}
+      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+
+        {/* Search + filter toolbar */}
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
+          <div className="relative flex-1 max-w-xs">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+            <input
+              type="text"
+              placeholder="Search customers…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            />
           </div>
-        </div>
-      )}
-
-      {/* At-Risk Customers */}
-      {atRiskCustomers.length > 0 && (
-        <div className="mb-10">
-          <h2 className="text-sm font-medium text-yellow-700 mb-3">⚠️ At-Risk Customers</h2>
-          <div className="space-y-3">
-            {atRiskCustomers.map((c, i) => {
-              const days = Math.floor(daysSince(c.lastPayment));
-              return (
-                <div key={i} className="p-5 bg-yellow-50 border border-yellow-200 rounded-2xl flex justify-between items-center">
-                  <div>
-                    <p className="font-medium">{c.email}</p>
-                    <p className="text-sm text-yellow-700 mt-0.5">No payment in {days} days — consider reaching out</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold">£{(c.total / 100).toFixed(2)}</p>
-                    <p className="text-xs text-gray-400">CLTV</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* All Customers */}
-      <div>
-        <h2 className="text-sm font-medium text-gray-500 mb-3">All Customers</h2>
-        <div className="space-y-2">
-          {customers.map((c, i) => {
-            const isAtRisk = !c.churned && daysSince(c.lastPayment) > 30;
-            const avgPayment = c.payments > 0 ? c.total / c.payments : 0;
-
-            return (
-              <div
-                key={i}
-                className={`p-4 border rounded-xl flex justify-between items-center text-sm ${
-                  c.churned
-                    ? "bg-red-50 border-red-200"
-                    : isAtRisk
-                    ? "bg-yellow-50 border-yellow-200"
-                    : "bg-white border-gray-200"
+          <div className="flex items-center gap-1">
+            {filterOptions.map((opt) => (
+              <button
+                key={opt.key}
+                onClick={() => setFilter(opt.key)}
+                className={`text-xs px-2.5 py-1 rounded-lg transition-colors ${
+                  filter === opt.key
+                    ? "bg-gray-900 text-white"
+                    : "text-gray-400 hover:text-gray-700 hover:bg-gray-50"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <p className="font-medium">{c.email}</p>
-                  {c.churned && (
-                    <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">💀 Churned</span>
-                  )}
-                  {c.churned && churnReasonMap[c.email] && (
-                    <span className="text-xs bg-red-50 text-red-500 border border-red-200 px-2 py-0.5 rounded-full">
-                      {churnReasonMap[c.email]}
-                    </span>
-                  )}
-                  {isAtRisk && (
-                    <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">⚠️ At risk</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-6 text-right">
-                  <div className="hidden md:block text-gray-400">
-                    <span>{c.payments} payment{c.payments !== 1 ? "s" : ""}</span>
-                    <span className="mx-2">·</span>
-                    <span>avg £{(avgPayment / 100).toFixed(2)}</span>
-                  </div>
-                  <div>
-                    <p className="font-semibold">£{(c.total / 100).toFixed(2)}</p>
-                    <p className="text-xs text-gray-400">Last: {new Date(c.lastPayment).toLocaleDateString()}</p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                {opt.label}
+                <span className={`ml-1 tabular-nums ${filter === opt.key ? "text-gray-400" : "text-gray-300"}`}>{opt.count}</span>
+              </button>
+            ))}
+          </div>
         </div>
+
+        {/* Column headers */}
+        <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-x-4 items-center px-5 py-2.5 bg-gray-50/60 border-b border-gray-100">
+          <span className="w-8" />
+          <p className="text-xs font-semibold text-gray-500">Customer</p>
+          <p className="text-xs font-semibold text-gray-500 text-right">Total</p>
+          <p className="text-xs font-semibold text-gray-500 text-right hidden md:block">Payments</p>
+          <p className="text-xs font-semibold text-gray-500 text-right hidden md:block">Last payment</p>
+          <span className="w-10" />
+        </div>
+
+        {/* Rows */}
+        {filtered.length === 0 ? (
+          <p className="px-5 py-10 text-sm text-gray-400 text-center">No customers match your search.</p>
+        ) : (
+          <ul>
+            {filtered.map((c) => {
+              const isAtRisk = !c.churned && daysSince(c.lastPayment) > 30;
+              const initial = c.email?.[0]?.toUpperCase() ?? "?";
+              const avatarColor = c.churned
+                ? "bg-red-100 text-red-500"
+                : isAtRisk
+                ? "bg-amber-100 text-amber-600"
+                : "bg-indigo-100 text-indigo-600";
+
+              return (
+                <li key={c.id} className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-x-4 items-center px-5 py-3.5 border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors group">
+
+                  {/* Avatar */}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${avatarColor}`}>
+                    {initial}
+                  </div>
+
+                  {/* Email + badges */}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-gray-800 truncate">{c.email}</span>
+                      {c.churned && (
+                        <span className="text-[11px] font-medium bg-red-50 text-red-600 border border-red-100 px-1.5 py-0.5 rounded-full shrink-0">Churned</span>
+                      )}
+                      {c.churned && churnReasonMap[c.email] && (
+                        <span className="text-[11px] text-gray-400 shrink-0">{churnReasonMap[c.email]}</span>
+                      )}
+                      {isAtRisk && (
+                        <span className="text-[11px] font-medium bg-amber-50 text-amber-600 border border-amber-100 px-1.5 py-0.5 rounded-full shrink-0">At risk</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Total */}
+                  <p className="text-sm font-semibold text-gray-800 tabular-nums text-right">
+                    £{(c.total / 100).toLocaleString("en-GB", { minimumFractionDigits: 2 })}
+                  </p>
+
+                  {/* Payments */}
+                  <p className="text-sm text-gray-400 tabular-nums text-right hidden md:block">{c.payments}</p>
+
+                  {/* Last payment */}
+                  <p className="text-sm text-gray-400 text-right hidden md:block">
+                    {new Date(c.lastPayment).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                  </p>
+
+                  {/* View link */}
+                  <Link
+                    href={`/customers/${c.id}`}
+                    className="flex justify-end w-10 text-gray-300 hover:text-indigo-500 transition-colors opacity-0 group-hover:opacity-100"
+                  >
+                    <ArrowRight size={14} />
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
     </div>

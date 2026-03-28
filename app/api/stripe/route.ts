@@ -1,11 +1,27 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-03-25.dahlia",
-});
+export async function GET(request: NextRequest) {
+  // Resolve per-user Stripe key — no global fallback
+  const token = request.headers.get("Authorization")?.replace("Bearer ", "");
+  if (!token) return NextResponse.json({ notConnected: true });
 
-export async function GET() {
+  const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+  if (!user) return NextResponse.json({ notConnected: true });
+
+  const { data: conn } = await supabaseAdmin
+    .from("stripe_connections")
+    .select("stripe_secret_key")
+    .eq("user_id", user.id)
+    .single();
+
+  if (!conn?.stripe_secret_key) return NextResponse.json({ notConnected: true });
+
+  const stripeKey = conn.stripe_secret_key;
+
+  const stripe = new Stripe(stripeKey, { apiVersion: "2026-03-25.dahlia" });
+
   try {
     // 📡 Fetch Stripe data (paginated)
     const [invoices, events] = await Promise.all([
@@ -17,10 +33,13 @@ export async function GET() {
     const customerMap: Record<string, any> = {};
 
     invoices.forEach((inv: any) => {
+      const customerId = inv.customer;
+      if (!customerId) return;
       const email = inv.customer_email || "Unknown";
 
-      if (!customerMap[email]) {
-        customerMap[email] = {
+      if (!customerMap[customerId]) {
+        customerMap[customerId] = {
+          id: customerId,
           email,
           total: 0,
           payments: 0,
@@ -29,13 +48,16 @@ export async function GET() {
         };
       }
 
-      customerMap[email].total += inv.amount_paid || 0;
-      customerMap[email].payments += 1;
+      // Always update to latest known email for this customer
+      if (inv.customer_email) customerMap[customerId].email = inv.customer_email;
+
+      customerMap[customerId].total += inv.amount_paid || 0;
+      customerMap[customerId].payments += 1;
 
       const date = new Date(inv.created * 1000);
 
-      if (!customerMap[email].lastPayment || date > customerMap[email].lastPayment) {
-        customerMap[email].lastPayment = date;
+      if (!customerMap[customerId].lastPayment || date > customerMap[customerId].lastPayment) {
+        customerMap[customerId].lastPayment = date;
       }
     });
 
@@ -70,8 +92,7 @@ export async function GET() {
       const churnAt = latestChurnAt[inv.customer];
       const invoiceAt = latestInvoiceAt[inv.customer];
       if (churnAt && invoiceAt < thirtyFiveDaysAgo) {
-        const email = inv.customer_email || "Unknown";
-        if (customerMap[email]) customerMap[email].churned = true;
+        if (customerMap[inv.customer]) customerMap[inv.customer].churned = true;
       }
     });
 
@@ -107,7 +128,7 @@ export async function GET() {
 
       // Infer reason when Stripe doesn't provide one
       const email = customerIdToEmail[customerId] || "Unknown";
-      const payments = customerMap[email]?.payments ?? 0;
+      const payments = customerMap[customerId]?.payments ?? 0;
       let inferredLabel: string;
       if (reason === "payment_failed") {
         inferredLabel = "Payment failed";
