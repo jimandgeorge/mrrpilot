@@ -48,13 +48,13 @@ function buildPrompt(m: {
   range: string;
   breakdown: { new: number; renewal: number; upgrade: number };
   churnTrend: { thisPeriod: number; lastPeriod: number };
-  churnRisk: { email: string; daysSince: number; daysLeft: number; mrr: number }[];
+  churnRisk: { email: string; daysPastDue: number; mrr: number }[];
 }) {
   const fmt = (p: number) => `£${(p / 100).toFixed(0)}`;
 
   const riskLine = m.churnRisk.length > 0
-    ? `At-risk customers (haven't paid in 20–34 days): ${m.churnRisk.map(c => `${c.email} (${c.daysLeft} days left, ${fmt(c.mrr)}/mo)`).join("; ")}.`
-    : "No customers currently at churn risk.";
+    ? `Past-due subscriptions: ${m.churnRisk.map(c => `${c.email} (${c.daysPastDue} day${c.daysPastDue !== 1 ? "s" : ""} overdue, ${fmt(c.mrr)}/mo)`).join("; ")}.`
+    : "No subscriptions currently past due.";
 
   const trendLine = m.churnTrend.thisPeriod > m.churnTrend.lastPeriod
     ? `Churn increased this period (${m.churnTrend.lastPeriod} → ${m.churnTrend.thisPeriod}).`

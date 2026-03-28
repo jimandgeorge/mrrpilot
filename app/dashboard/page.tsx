@@ -107,7 +107,7 @@ export default function Home() {
   const [nrr, setNrr] = useState<number | null>(null);
   const [ltv, setLtv] = useState<number | null>(null);
   const [quickRatio, setQuickRatio] = useState<number | null>(null);
-  const [churnRisk, setChurnRisk] = useState<{ id: string; email: string; daysSince: number; mrr: number }[]>([]);
+  const [churnRisk, setChurnRisk] = useState<{ id: string; email: string; daysPastDue: number; mrr: number }[]>([]);
   const [mrrWaterfall, setMrrWaterfall] = useState<{ month: string; new: number; expansion: number; contraction: number; churn: number; net: number }[]>([]);
   const [planRevenue, setPlanRevenue] = useState<{ name: string; mrr: number; customers: number; pct: number }[]>([]);
   const [pastDue, setPastDue] = useState<{ id: string; email: string; amount: number; daysOverdue: number; hostedUrl: string | null }[]>([]);
@@ -136,6 +136,7 @@ export default function Home() {
       if (data.notConnected) { setNotConnected(true); setLoading(false); return; }
       setRawData(data);
       setPastDue(data.pastDueInvoices || []);
+      setChurnRisk(data.atRiskSubscriptions || []);
     } catch {
       setFetchError(true);
       setLoading(false);
@@ -194,7 +195,7 @@ export default function Home() {
         mrr, arr: mrr * 12, arpu, nrr, growthRate, churnRate, churnRevenue,
         projectedMrr, newCustomers: newCustomerCount, breakdown,
         churnTrend: { thisPeriod: churnTrend.thisPeriod, lastPeriod: churnTrend.lastPeriod },
-        churnRisk: churnRisk.map(c => ({ email: c.email, mrr: c.mrr, daysSince: c.daysSince, daysLeft: 35 - c.daysSince })),
+        churnRisk: churnRisk.map(c => ({ email: c.email, mrr: c.mrr, daysPastDue: c.daysPastDue })),
         planRevenue,
         recentEvents: events.slice(0, 20).map(e => ({
           email: e.email ?? "", type: e.type, amount: e.amount,
@@ -360,27 +361,6 @@ export default function Home() {
     });
     const calcNrr = startingMrr > 0 ? Math.round((retainedMrr / startingMrr) * 100) : null;
 
-    // Churn risk — active customers with last payment 20–34 days ago
-    const calcChurnRisk: { id: string; email: string; daysSince: number; mrr: number }[] = [];
-    Object.entries(latestByCustomer).forEach(([customerId, inv]: [string, any]) => {
-      const daysSince = (nowTs - inv.created) / (24 * 60 * 60);
-      if (daysSince >= 20 && daysSince < 35) {
-        const line = inv.lines?.data?.[0];
-        const interval = line?.price?.recurring?.interval;
-        const intervalCount = line?.price?.recurring?.interval_count || 1;
-        let monthly = inv.amount_paid || 0;
-        if (interval === "year") monthly = Math.round(monthly / (12 * intervalCount));
-        else if (interval === "week") monthly = Math.round((monthly * 52) / (12 * intervalCount));
-        else monthly = Math.round(monthly / intervalCount);
-        calcChurnRisk.push({
-          id: customerId,
-          email: customerEmailMap[customerId] || customerId,
-          daysSince: Math.floor(daysSince),
-          mrr: monthly,
-        });
-      }
-    });
-    calcChurnRisk.sort((a, b) => b.mrr - a.mrr);
 
     // MRR Waterfall — monthly MRR per customer, then classify movements
     const monthCustomerMrr: Record<string, Record<string, number>> = {};
@@ -669,7 +649,7 @@ export default function Home() {
     setNrr(calcNrr);
     setLtv(calcLtv);
     setQuickRatio(calcQuickRatio);
-    setChurnRisk(calcChurnRisk);
+    // churnRisk is set directly from atRiskSubscriptions in loadData
     setMrrWaterfall(calcWaterfall);
     setPlanRevenue(calcPlanRevenue);
     setNewCustomerCount(newCustomers);
@@ -699,7 +679,7 @@ export default function Home() {
       range: selectedRange,
       breakdown: { new: newRevenue, renewal: renewalRevenue, upgrade: upgradeRevenue },
       churnTrend: { thisPeriod: churnsThisPeriod.length, lastPeriod: churnsLastPeriod.length },
-      churnRisk: calcChurnRisk.map(c => ({ email: c.email, daysSince: c.daysSince, daysLeft: 35 - c.daysSince, mrr: c.mrr })),
+      churnRisk: churnRisk.map(c => ({ email: c.email, daysPastDue: c.daysPastDue, mrr: c.mrr })),
     });
   }
 
@@ -801,7 +781,7 @@ export default function Home() {
                 mrr, projectedMrr, periodChange, growthRate, churnRate, churnRevenue,
                 churnCount: churnTrend.thisPeriod, newCustomers: newCustomerCount, range, breakdown,
                 churnTrend: { thisPeriod: churnTrend.thisPeriod, lastPeriod: churnTrend.lastPeriod },
-                churnRisk: churnRisk.map(c => ({ email: c.email, daysSince: c.daysSince, daysLeft: 35 - c.daysSince, mrr: c.mrr })),
+                churnRisk: churnRisk.map(c => ({ email: c.email, daysPastDue: c.daysPastDue, mrr: c.mrr })),
               })}
               className="text-xs text-gray-300 hover:text-indigo-500 transition-colors flex items-center gap-1"
             >
@@ -880,7 +860,7 @@ export default function Home() {
         <Link key={c.id} href={`/customers/${c.id}`}
           className="flex items-center justify-between bg-amber-50 border border-amber-100 rounded-xl px-5 py-3.5 hover:bg-amber-100/60 transition-colors">
           <p className="text-sm text-amber-900 leading-relaxed">
-            <span className="font-semibold">{c.email}</span> hasn't paid in {c.daysSince} days — {35 - c.daysSince} day{35 - c.daysSince !== 1 ? "s" : ""} left before they churn.
+            <span className="font-semibold">{c.email}</span> subscription is past due{c.daysPastDue > 0 ? ` · ${c.daysPastDue} day${c.daysPastDue !== 1 ? "s" : ""} overdue` : ""} — reach out before they cancel.
           </p>
           <span className="shrink-0 text-xs font-semibold text-amber-600 ml-4">View →</span>
         </Link>

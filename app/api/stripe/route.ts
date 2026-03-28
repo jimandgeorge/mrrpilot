@@ -24,9 +24,11 @@ export async function GET(request: NextRequest) {
 
   try {
     // 📡 Fetch Stripe data (paginated)
-    const [invoices, events] = await Promise.all([
+    const [invoices, events, pastDueSubs, unpaidSubs] = await Promise.all([
       stripe.invoices.list({ limit: 100 }).autoPagingToArray({ limit: 10000 }),
       stripe.events.list({ limit: 100, type: "customer.subscription.deleted" }).autoPagingToArray({ limit: 10000 }),
+      stripe.subscriptions.list({ status: "past_due", limit: 100, expand: ["data.customer"] }).autoPagingToArray({ limit: 1000 }),
+      stripe.subscriptions.list({ status: "unpaid", limit: 100, expand: ["data.customer"] }).autoPagingToArray({ limit: 1000 }),
     ]);
 
     // 🧠 Build customers from invoices
@@ -153,6 +155,26 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // ⚠️ At-risk subscriptions (past_due or unpaid status)
+    const atRiskSubscriptions = [...pastDueSubs, ...unpaidSubs].map((sub: any) => {
+      const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
+      const email = typeof sub.customer === "object" && sub.customer?.email
+        ? sub.customer.email
+        : customerIdToEmail[customerId] || "Unknown";
+      const item = sub.items?.data?.[0];
+      const unitAmount = item?.price?.unit_amount || 0;
+      const interval = item?.price?.recurring?.interval;
+      const intervalCount = item?.price?.recurring?.interval_count || 1;
+      let mrr = unitAmount * (item?.quantity || 1);
+      if (interval === "year") mrr = Math.round(mrr / (12 * intervalCount));
+      else if (interval === "week") mrr = Math.round((mrr * 52) / (12 * intervalCount));
+      else mrr = Math.round(mrr / intervalCount);
+      const daysPastDue = sub.current_period_end
+        ? Math.floor((now - sub.current_period_end) / 86400)
+        : 0;
+      return { id: customerId, email, mrr, daysPastDue, status: sub.status };
+    }).filter((s: any) => s.id);
+
     // 💳 Past-due invoices (open + due date in the past)
     const pastDueInvoices = invoices
       .filter((inv: any) => inv.status === "open" && inv.due_date && inv.due_date < now)
@@ -174,6 +196,7 @@ export async function GET(request: NextRequest) {
       customers,
       churnEvents,
       pastDueInvoices,
+      atRiskSubscriptions,
     });
 
   } catch (error) {

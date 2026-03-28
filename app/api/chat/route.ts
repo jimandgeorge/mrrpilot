@@ -50,7 +50,7 @@ function buildSystemPrompt(ctx: {
   newCustomers: number;
   breakdown: { new: number; renewal: number; upgrade: number };
   churnTrend: { thisPeriod: number; lastPeriod: number };
-  churnRisk: { email: string; mrr: number; daysSince: number; daysLeft: number }[];
+  churnRisk: { email: string; mrr: number; daysPastDue: number }[];
   planRevenue: { name: string; mrr: number; customers: number; pct: number }[];
   recentEvents: { email: string; type: string; amount: number; date: string }[];
   range: string;
@@ -58,7 +58,7 @@ function buildSystemPrompt(ctx: {
   const fmt = (p: number) => `£${(p / 100).toFixed(0)}`;
 
   const riskSection = ctx.churnRisk.length > 0
-    ? ctx.churnRisk.map(c => `  - ${c.email}: ${fmt(c.mrr)}/mo, ${c.daysSince} days since last payment, ${c.daysLeft} days left`).join("\n")
+    ? ctx.churnRisk.map(c => `  - ${c.email}: ${fmt(c.mrr)}/mo, subscription past due by ${c.daysPastDue} day${c.daysPastDue !== 1 ? "s" : ""}`).join("\n")
     : "  None";
 
   const plansSection = ctx.planRevenue.length > 0
