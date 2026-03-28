@@ -848,7 +848,7 @@ export default function Home() {
             type="text"
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
-            placeholder="Ask anything about your revenue…"
+            placeholder="Who should I reach out to today?"
             disabled={chatStreaming}
             className="flex-1 text-sm border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:opacity-50 placeholder:text-gray-300"
           />

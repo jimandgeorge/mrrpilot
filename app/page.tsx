@@ -19,15 +19,15 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="max-w-6xl mx-auto px-6 pt-20 pb-24 grid md:grid-cols-2 gap-16 items-center">
         <div>
-          <div className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-600 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
-            <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full" />
-            Revenue intelligence for SaaS founders
+          <div className="inline-flex items-center gap-2 bg-amber-50 text-amber-600 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
+            <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+            Churn prevention for SaaS founders
           </div>
           <h1 className="text-5xl font-bold text-gray-900 leading-tight tracking-tight mb-5">
-            Messy revenue data,<br />made clear.
+            Know who's about to churn<br />before they do.
           </h1>
           <p className="text-lg text-gray-500 leading-relaxed mb-8">
-            RevInt turns your Stripe data into clear, actionable insight — MRR, churn risk, LTV, and AI briefings that tell you what to do next.
+            RevInt watches your Stripe data and flags customers at risk — before the cancellation hits. Connect in 30 seconds, act within minutes.
           </p>
           <div className="flex items-center gap-4">
             <Link href="/login" className="bg-indigo-600 text-white font-medium px-6 py-3 rounded-xl hover:bg-indigo-700 transition-colors flex items-center gap-2">
@@ -84,26 +84,26 @@ export default function LandingPage() {
       {/* Features */}
       <section className="bg-gray-50 border-y border-gray-100 py-20 px-6">
         <div className="max-w-6xl mx-auto">
-          <p className="text-xs font-semibold text-gray-400 text-center mb-12 tracking-widest uppercase">Everything a SaaS founder needs</p>
+          <p className="text-xs font-semibold text-gray-400 text-center mb-12 tracking-widest uppercase">Built around one thing: keeping your customers</p>
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                icon: TrendingUp,
-                title: "Live revenue metrics",
-                desc: "MRR, ARPU, NRR, growth rate and a 3-month forecast — all calculated in real time from your Stripe invoices.",
-                color: "bg-indigo-50 text-indigo-500",
-              },
-              {
                 icon: ShieldAlert,
-                title: "Churn risk before it happens",
-                desc: "Customers approaching your churn threshold are flagged with days remaining and MRR at risk — so you can reach out first.",
+                title: "Churn risk, days in advance",
+                desc: "Customers approaching cancellation are flagged by name, with MRR at risk and days left to act — so you reach out before they leave.",
                 color: "bg-amber-50 text-amber-500",
               },
               {
                 icon: Sparkles,
-                title: "AI revenue briefings",
-                desc: "An analyst-style summary of what's happening with your revenue, written fresh every time you refresh the dashboard.",
+                title: "AI that explains what's happening",
+                desc: "Every time you open the dashboard you get a plain-English briefing. Ask follow-up questions. Get specific answers about your actual customers.",
                 color: "bg-purple-50 text-purple-500",
+              },
+              {
+                icon: TrendingUp,
+                title: "The numbers that matter",
+                desc: "MRR, ARPU, NRR, growth rate, and a 3-month forecast — calculated live from your Stripe data. No setup, no manual imports.",
+                color: "bg-indigo-50 text-indigo-500",
               },
             ].map(({ icon: Icon, title, desc, color }) => (
               <div key={title} className="bg-white rounded-2xl border border-gray-200 p-7">
@@ -166,8 +166,8 @@ export default function LandingPage() {
       {/* CTA banner */}
       <section className="bg-indigo-600 py-16 px-6">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-white mb-3">Turn your revenue data into action.</h2>
-          <p className="text-indigo-200 mb-8">Connect Stripe in 30 seconds. Clear insight, no noise.</p>
+          <h2 className="text-3xl font-bold text-white mb-3">Stop losing customers you could have kept.</h2>
+          <p className="text-indigo-200 mb-8">Connect Stripe in 30 seconds. Know who's at risk today.</p>
           <Link href="/login" className="inline-flex items-center gap-2 bg-white text-indigo-600 font-semibold px-8 py-3 rounded-xl hover:bg-indigo-50 transition-colors">
             Get started free <ArrowRight size={15} />
           </Link>

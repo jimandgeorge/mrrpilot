@@ -64,7 +64,9 @@ function buildPrompt(m: {
 
   return `You are a trusted advisor to a small SaaS founder. Write 2–3 sentences in a direct, conversational tone — like a quick message from someone who knows their business well.
 
-Be specific with numbers. Name customers when relevant. Focus on what matters most right now and end with one concrete thing to do.
+If there are customers at churn risk, lead with that — name them, say how many days they have left, tell the founder to reach out today. That is always the most urgent thing.
+
+If there's no churn risk, lead with the most notable revenue movement. Be specific with numbers. End with one concrete action.
 
 No bullet points. No headers. No "great news" or "exciting times". Just talk to them plainly.
 
