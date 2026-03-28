@@ -59,7 +59,8 @@ export default function SettingsPage() {
   async function handleConnect() {
     setError("");
     setSuccess("");
-    if (!keyInput.startsWith("sk_")) {
+    const trimmedKey = keyInput.trim();
+    if (!trimmedKey.startsWith("sk_")) {
       setError("Key must start with sk_live_ or sk_test_");
       return;
     }
@@ -71,7 +72,7 @@ export default function SettingsPage() {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ stripeKey: keyInput }),
+      body: JSON.stringify({ stripeKey: trimmedKey }),
     });
     const data = await res.json();
     setSaving(false);
@@ -154,7 +155,7 @@ export default function SettingsPage() {
                 type="password"
                 placeholder="sk_live_... or sk_test_..."
                 value={keyInput}
-                onChange={(e) => setKeyInput(e.target.value)}
+                onChange={(e) => setKeyInput(e.target.value.trim())}
                 onKeyDown={(e) => e.key === "Enter" && handleConnect()}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
               />
