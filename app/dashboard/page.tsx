@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { HelpCircle, RefreshCw, Plug, AlertTriangle, TrendingUp, TrendingDown, UserPlus, UserMinus, AlertCircle, Lightbulb, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 
@@ -113,6 +113,11 @@ export default function Home() {
   const [pastDue, setPastDue] = useState<{ id: string; email: string; amount: number; daysOverdue: number; hostedUrl: string | null }[]>([]);
   const [userEmail, setUserEmail] = useState("");
 
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatStreaming, setChatStreaming] = useState(false);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
+
   // Load goal from localStorage
   useEffect(() => {
     const saved = localStorage.getItem("revint_goal");
@@ -171,6 +176,57 @@ export default function Home() {
       // Commentary is non-critical — fail silently
     }
     setCommentaryLoading(false);
+  }
+
+  async function sendChat(e: React.FormEvent) {
+    e.preventDefault();
+    const text = chatInput.trim();
+    if (!text || chatStreaming) return;
+
+    const newMessages = [...chatMessages, { role: "user" as const, content: text }];
+    setChatMessages(newMessages);
+    setChatInput("");
+    setChatStreaming(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const context = {
+        mrr, arr: mrr * 12, arpu, nrr, growthRate, churnRate, churnRevenue,
+        projectedMrr, newCustomers: newCustomerCount, breakdown,
+        churnTrend: { thisPeriod: churnTrend.thisPeriod, lastPeriod: churnTrend.lastPeriod },
+        churnRisk: churnRisk.map(c => ({ email: c.email, mrr: c.mrr, daysSince: c.daysSince, daysLeft: 35 - c.daysSince })),
+        planRevenue,
+        recentEvents: events.slice(0, 20).map(e => ({
+          email: e.email ?? "", type: e.type, amount: e.amount,
+          date: e.date.toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+        })),
+        range,
+      };
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
+        body: JSON.stringify({ messages: newMessages, context }),
+      });
+      if (!res.ok || !res.body) return;
+
+      setChatMessages(prev => [...prev, { role: "assistant", content: "" }]);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        setChatMessages(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1] = { role: "assistant", content: updated[updated.length - 1].content + chunk };
+          return updated;
+        });
+        chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
+    } catch {
+      // fail silently
+    }
+    setChatStreaming(false);
   }
 
   function saveGoal() {
@@ -764,6 +820,46 @@ export default function Home() {
         ) : commentary ? (
           <p className="text-[17px] leading-relaxed text-gray-800">{commentary}</p>
         ) : null}
+
+        {/* Chat thread */}
+        {chatMessages.length > 0 && (
+          <div className="mt-6 space-y-4 border-t border-gray-100 pt-5">
+            {chatMessages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                  msg.role === "user"
+                    ? "bg-indigo-600 text-white"
+                    : "text-gray-800"
+                }`}>
+                  {msg.content}
+                  {msg.role === "assistant" && chatStreaming && i === chatMessages.length - 1 && (
+                    <span className="inline-block w-1 h-3.5 bg-gray-400 ml-0.5 animate-pulse rounded-sm" />
+                  )}
+                </div>
+              </div>
+            ))}
+            <div ref={chatBottomRef} />
+          </div>
+        )}
+
+        {/* Chat input */}
+        <form onSubmit={sendChat} className="mt-4 flex gap-2">
+          <input
+            type="text"
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            placeholder="Ask anything about your revenue…"
+            disabled={chatStreaming}
+            className="flex-1 text-sm border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:opacity-50 placeholder:text-gray-300"
+          />
+          <button
+            type="submit"
+            disabled={!chatInput.trim() || chatStreaming}
+            className="text-sm font-medium bg-indigo-600 text-white px-4 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-40"
+          >
+            Ask
+          </button>
+        </form>
       </div>
 
       {/* Urgent callouts — conversational */}
