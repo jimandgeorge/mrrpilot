@@ -153,12 +153,27 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // 💳 Past-due invoices (open + due date in the past)
+    const pastDueInvoices = invoices
+      .filter((inv: any) => inv.status === "open" && inv.due_date && inv.due_date < now)
+      .map((inv: any) => ({
+        id: inv.id,
+        customer: inv.customer,
+        email: customerIdToEmail[inv.customer as string] || inv.customer_email || "Unknown",
+        amount: inv.amount_remaining || inv.amount_due,
+        dueDate: inv.due_date,
+        daysOverdue: Math.floor((now - inv.due_date) / 86400),
+        hostedUrl: inv.hosted_invoice_url,
+      }))
+      .sort((a: any, b: any) => b.amount - a.amount);
+
     // 📤 Return data
     return NextResponse.json({
       invoices,
       events,
       customers,
       churnEvents,
+      pastDueInvoices,
     });
 
   } catch (error) {

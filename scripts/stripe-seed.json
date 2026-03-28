@@ -1,0 +1,184 @@
+{
+  "_meta": { "template_version": 0 },
+  "fixtures": [
+
+    // ── Product & prices ──────────────────────────────────────────────────────
+    {
+      "name": "product",
+      "path": "/v1/products",
+      "method": "post",
+      "params": { "name": "SaaS App" }
+    },
+    {
+      "name": "price_basic",
+      "path": "/v1/prices",
+      "method": "post",
+      "params": {
+        "product": "${product:id}",
+        "currency": "gbp",
+        "unit_amount": 2900,
+        "recurring": { "interval": "month" },
+        "nickname": "Basic"
+      }
+    },
+    {
+      "name": "price_pro",
+      "path": "/v1/prices",
+      "method": "post",
+      "params": {
+        "product": "${product:id}",
+        "currency": "gbp",
+        "unit_amount": 7900,
+        "recurring": { "interval": "month" },
+        "nickname": "Pro"
+      }
+    },
+    {
+      "name": "price_enterprise",
+      "path": "/v1/prices",
+      "method": "post",
+      "params": {
+        "product": "${product:id}",
+        "currency": "gbp",
+        "unit_amount": 19900,
+        "recurring": { "interval": "month" },
+        "nickname": "Enterprise"
+      }
+    },
+
+    // ── Dec 2025 cohort (backdate_start_date = 2025-12-01 = 1764547200) ──────
+    // Alice — Basic £29/mo, active
+    {
+      "name": "customer_alice",
+      "path": "/v1/customers",
+      "method": "post",
+      "params": { "email": "alice@example.com", "name": "Alice Johnson", "source": "tok_visa" }
+    },
+    {
+      "name": "sub_alice",
+      "path": "/v1/subscriptions",
+      "method": "post",
+      "params": {
+        "customer": "${customer_alice:id}",
+        "items": [{ "price": "${price_basic:id}" }],
+        "backdate_start_date": 1764547200
+      }
+    },
+
+    // Bob — Pro £79/mo, active
+    {
+      "name": "customer_bob",
+      "path": "/v1/customers",
+      "method": "post",
+      "params": { "email": "bob@example.com", "name": "Bob Smith", "source": "tok_visa" }
+    },
+    {
+      "name": "sub_bob",
+      "path": "/v1/subscriptions",
+      "method": "post",
+      "params": {
+        "customer": "${customer_bob:id}",
+        "items": [{ "price": "${price_pro:id}" }],
+        "backdate_start_date": 1764547200
+      }
+    },
+
+    // Carol — Enterprise £199/mo, then churned → tests Churn Intelligence
+    {
+      "name": "customer_carol",
+      "path": "/v1/customers",
+      "method": "post",
+      "params": { "email": "carol@example.com", "name": "Carol White", "source": "tok_visa" }
+    },
+    {
+      "name": "sub_carol",
+      "path": "/v1/subscriptions",
+      "method": "post",
+      "params": {
+        "customer": "${customer_carol:id}",
+        "items": [{ "price": "${price_enterprise:id}" }],
+        "backdate_start_date": 1764547200
+      }
+    },
+    {
+      "name": "cancel_carol",
+      "path": "/v1/subscriptions/${sub_carol:id}",
+      "method": "delete"
+    },
+
+    // ── Jan 2026 cohort (backdate_start_date = 2026-01-01 = 1767225600) ──────
+    // Dave — Basic £29/mo, active
+    {
+      "name": "customer_dave",
+      "path": "/v1/customers",
+      "method": "post",
+      "params": { "email": "dave@example.com", "name": "Dave Brown", "source": "tok_visa" }
+    },
+    {
+      "name": "sub_dave",
+      "path": "/v1/subscriptions",
+      "method": "post",
+      "params": {
+        "customer": "${customer_dave:id}",
+        "items": [{ "price": "${price_basic:id}" }],
+        "backdate_start_date": 1767225600
+      }
+    },
+
+    // Eve — Pro £79/mo, active
+    {
+      "name": "customer_eve",
+      "path": "/v1/customers",
+      "method": "post",
+      "params": { "email": "eve@example.com", "name": "Eve Davis", "source": "tok_visa" }
+    },
+    {
+      "name": "sub_eve",
+      "path": "/v1/subscriptions",
+      "method": "post",
+      "params": {
+        "customer": "${customer_eve:id}",
+        "items": [{ "price": "${price_pro:id}" }],
+        "backdate_start_date": 1767225600
+      }
+    },
+
+    // ── Feb 2026 cohort — last payment 28 days ago → churn risk window ───────
+    // Grace — Pro £79/mo, last billed Feb 28 (28 days ago) → appears in Churn Risk
+    {
+      "name": "customer_grace",
+      "path": "/v1/customers",
+      "method": "post",
+      "params": { "email": "grace@example.com", "name": "Grace Lee", "source": "tok_visa" }
+    },
+    {
+      "name": "sub_grace",
+      "path": "/v1/subscriptions",
+      "method": "post",
+      "params": {
+        "customer": "${customer_grace:id}",
+        "items": [{ "price": "${price_pro:id}" }],
+        "backdate_start_date": 1772236800
+      }
+    },
+
+    // ── Mar 2026 — new this month ─────────────────────────────────────────────
+    // Henry — Enterprise £199/mo, brand new
+    {
+      "name": "customer_henry",
+      "path": "/v1/customers",
+      "method": "post",
+      "params": { "email": "henry@example.com", "name": "Henry Clark", "source": "tok_visa" }
+    },
+    {
+      "name": "sub_henry",
+      "path": "/v1/subscriptions",
+      "method": "post",
+      "params": {
+        "customer": "${customer_henry:id}",
+        "items": [{ "price": "${price_enterprise:id}" }]
+      }
+    }
+
+  ]
+}

@@ -12,18 +12,14 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const metrics = await request.json();
-
-  const prompt = buildPrompt(metrics);
-
   const message = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 300,
-    messages: [{ role: "user", content: prompt }],
+    max_tokens: 200,
+    messages: [{ role: "user", content: buildPrompt(metrics) }],
   });
 
   const content = message.content[0];
   const text = content.type === "text" ? content.text : "";
-
   return NextResponse.json({ commentary: text });
 }
 
@@ -39,28 +35,32 @@ function buildPrompt(m: {
   range: string;
   breakdown: { new: number; renewal: number; upgrade: number };
   churnTrend: { thisPeriod: number; lastPeriod: number };
+  churnRisk: { email: string; daysSince: number; daysLeft: number; mrr: number }[];
 }) {
   const fmt = (p: number) => `£${(p / 100).toFixed(0)}`;
-  const pct = (n: number) => `${n.toFixed(1)}%`;
 
-  const trendNote = m.churnTrend.thisPeriod > m.churnTrend.lastPeriod
-    ? `Churn is up vs the previous period (${m.churnTrend.lastPeriod} → ${m.churnTrend.thisPeriod} cancellations).`
+  const riskLine = m.churnRisk.length > 0
+    ? `At-risk customers (haven't paid in 20–34 days): ${m.churnRisk.map(c => `${c.email} (${c.daysLeft} days left, ${fmt(c.mrr)}/mo)`).join("; ")}.`
+    : "No customers currently at churn risk.";
+
+  const trendLine = m.churnTrend.thisPeriod > m.churnTrend.lastPeriod
+    ? `Churn increased this period (${m.churnTrend.lastPeriod} → ${m.churnTrend.thisPeriod}).`
     : m.churnTrend.thisPeriod < m.churnTrend.lastPeriod
-    ? `Churn is down vs the previous period (${m.churnTrend.lastPeriod} → ${m.churnTrend.thisPeriod} cancellations).`
+    ? `Churn improved this period (${m.churnTrend.lastPeriod} → ${m.churnTrend.thisPeriod}).`
     : "";
 
-  return `You are a concise revenue analyst for a SaaS business. Analyze these metrics and write a 2–3 sentence narrative that a founder would find genuinely useful. Be specific with the numbers, identify the single most important signal, and end with one concrete action. No fluff, no bullet points — just clear prose.
+  return `You are a trusted advisor to a small SaaS founder. Write 2–3 sentences in a direct, conversational tone — like a quick message from someone who knows their business well.
 
-Period: ${m.range}
-MRR: ${fmt(m.mrr)}
-Period change: ${m.periodChange >= 0 ? "+" : ""}${fmt(m.periodChange)}
-Growth rate: ${pct(m.growthRate)} of MRR
-Churn rate: ${pct(m.churnRate)} — lost ${fmt(m.churnRevenue)} from ${m.churnCount} cancellation${m.churnCount !== 1 ? "s" : ""}
-${trendNote}
-New customers: ${m.newCustomers} (${fmt(m.breakdown.new)} new revenue)
-Renewals: ${fmt(m.breakdown.renewal)}
-Upgrades: ${fmt(m.breakdown.upgrade)}
-3-month MRR forecast: ${fmt(m.projectedMrr)}
+Be specific with numbers. Name customers when relevant. Focus on what matters most right now and end with one concrete thing to do.
 
-Write 2–3 sentences maximum.`;
+No bullet points. No headers. No "great news" or "exciting times". Just talk to them plainly.
+
+Data:
+- MRR: ${fmt(m.mrr)} | Period change: ${m.periodChange >= 0 ? "+" : ""}${fmt(m.periodChange)} | Range: ${m.range}
+- New customers: ${m.newCustomers} (${fmt(m.breakdown.new)} new revenue) | Upgrades: ${fmt(m.breakdown.upgrade)}
+- Churn: ${m.churnCount} cancellation${m.churnCount !== 1 ? "s" : ""}, ${fmt(m.churnRevenue)} lost | ${trendLine}
+- ${riskLine}
+- 3-month forecast: ${fmt(m.projectedMrr)}
+
+2–3 sentences max. Sound like a person, not a report.`;
 }

@@ -9,14 +9,14 @@ import { supabase } from "@/lib/supabase";
 export default function ClientLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const isLogin = pathname === "/login";
+  const isPublic = pathname === "/login" || pathname === "/";
   const [userEmail, setUserEmail] = useState("");
   const [userInitial, setUserInitial] = useState("?");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session && !isLogin) router.replace("/login");
+      if (!session && !isPublic) router.replace("/login");
       if (session?.user?.email) {
         setUserEmail(session.user.email);
         setUserInitial(session.user.email[0].toUpperCase());
@@ -24,8 +24,8 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") router.replace("/login");
-      if (event === "SIGNED_IN" && isLogin) router.replace("/");
+      if (event === "SIGNED_OUT") router.replace("/");
+      if (event === "SIGNED_IN" && isPublic) router.replace("/dashboard");
       if (session?.user?.email) {
         setUserEmail(session.user.email);
         setUserInitial(session.user.email[0].toUpperCase());
@@ -33,13 +33,13 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, [isLogin, router]);
+  }, [isPublic, router]);
 
   // Close sidebar when route changes on mobile
   useEffect(() => { setSidebarOpen(false); }, [pathname]);
 
   const navItems = [
-    { href: "/",          label: "Dashboard", icon: LayoutDashboard },
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/customers", label: "Customers",  icon: Users           },
     { href: "/settings",  label: "Settings",   icon: Settings        },
   ];
@@ -95,7 +95,7 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
 
   return (
     <>
-      {!isLogin && (
+      {!isPublic && (
         <>
           {/* Mobile top bar */}
           <div className="md:hidden fixed top-0 left-0 right-0 z-20 h-14 bg-white border-b border-gray-100 px-4 flex items-center justify-between shrink-0">
@@ -130,7 +130,7 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
       )}
 
       {/* Main content — offset top on mobile for the fixed top bar */}
-      <div className={`flex-1 overflow-auto ${!isLogin ? "pt-14 md:pt-0" : ""}`}>
+      <div className={`flex-1 overflow-auto ${!isPublic ? "pt-14 md:pt-0" : ""}`}>
         {children}
       </div>
     </>
