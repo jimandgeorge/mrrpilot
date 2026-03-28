@@ -2,6 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
+// In-memory rate limiter — 5 attempts per user per 10 minutes
+const attempts = new Map<string, { count: number; resetAt: number }>();
+const WINDOW_MS = 10 * 60 * 1000;
+const MAX_ATTEMPTS = 5;
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const entry = attempts.get(userId);
+  if (!entry || now > entry.resetAt) {
+    attempts.set(userId, { count: 1, resetAt: now + WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= MAX_ATTEMPTS) return false;
+  entry.count++;
+  return true;
+}
+
 async function getUserFromRequest(request: NextRequest) {
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
   if (!token) return null;
@@ -13,6 +30,10 @@ async function getUserFromRequest(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const user = await getUserFromRequest(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (!checkRateLimit(user.id)) {
+    return NextResponse.json({ error: "Too many attempts. Try again in 10 minutes." }, { status: 429 });
+  }
 
   const { stripeKey } = await request.json();
   if (!stripeKey?.startsWith("sk_")) {
