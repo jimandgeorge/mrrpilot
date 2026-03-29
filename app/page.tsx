@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TrendingUp, ShieldAlert, Sparkles, ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 
 export default function LandingPage() {
   return (
@@ -84,36 +84,181 @@ export default function LandingPage() {
       {/* Features */}
       <section className="bg-gray-50 border-y border-gray-100 py-20 px-6">
         <div className="max-w-6xl mx-auto">
-          <p className="text-xs font-semibold text-gray-400 text-center mb-12 tracking-widest uppercase">Built around one thing: keeping your customers</p>
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: ShieldAlert,
-                title: "Churn risk, days in advance",
-                desc: "Customers approaching cancellation are flagged by name, with MRR at risk and days left to act — so you reach out before they leave.",
-                color: "bg-amber-50 text-amber-500",
-              },
-              {
-                icon: Sparkles,
-                title: "AI that explains what's happening",
-                desc: "Every time you open the dashboard you get a plain-English briefing. Ask follow-up questions. Get specific answers about your actual customers.",
-                color: "bg-purple-50 text-purple-500",
-              },
-              {
-                icon: TrendingUp,
-                title: "The numbers that matter",
-                desc: "MRR, ARPU, NRR, growth rate, and a 3-month forecast — calculated live from your Stripe data. No setup, no manual imports.",
-                color: "bg-indigo-50 text-indigo-500",
-              },
-            ].map(({ icon: Icon, title, desc, color }) => (
-              <div key={title} className="bg-white rounded-2xl border border-gray-200 p-7">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-5 ${color}`}>
-                  <Icon size={18} strokeWidth={1.8} />
-                </div>
-                <h3 className="text-base font-semibold text-gray-900 mb-2">{title}</h3>
-                <p className="text-sm text-gray-500 leading-relaxed">{desc}</p>
+          <p className="text-xs font-semibold text-gray-400 text-center mb-12 tracking-widest uppercase">Everything you need to keep your customers</p>
+
+          {/* Bento grid */}
+          <div className="grid md:grid-cols-3 gap-4">
+
+            {/* Dashboard metrics — spans 2 cols */}
+            <div className="md:col-span-2 bg-white rounded-2xl border border-gray-200 p-6 overflow-hidden">
+              <div className="mb-5">
+                <h3 className="text-base font-semibold text-gray-900 mb-1">Full revenue dashboard</h3>
+                <p className="text-sm text-gray-500">MRR, ARPU, NRR, growth rate, and a 3-month forecast — live from Stripe. No setup, no imports.</p>
               </div>
-            ))}
+              <div className="bg-gradient-to-br from-gray-50 to-indigo-50/30 rounded-xl border border-gray-100 p-4">
+                <div className="flex items-center divide-x divide-gray-100 mb-4">
+                  {[
+                    { label: "MRR", value: "£4,820", sub: "+£340 this month" },
+                    { label: "ARR", value: "£57,840", sub: undefined },
+                    { label: "ARPU", value: "£79", sub: undefined },
+                    { label: "NRR", value: "112%", color: "text-green-600" },
+                  ].map((m) => (
+                    <div key={m.label} className="flex-1 px-3 first:pl-0 last:pr-0 text-center">
+                      <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">{m.label}</p>
+                      <p className={`text-sm font-bold tabular-nums ${m.color ?? "text-gray-900"}`}>{m.value}</p>
+                      {m.sub && <p className="text-[10px] text-gray-400">{m.sub}</p>}
+                    </div>
+                  ))}
+                </div>
+                {/* Mini sparkline */}
+                <div className="flex items-end gap-1 h-12">
+                  {[30, 42, 38, 55, 48, 62, 58, 70, 65, 80, 75, 88].map((h, i) => (
+                    <div key={i} className="flex-1 rounded-sm bg-indigo-200" style={{ height: `${h}%` }} />
+                  ))}
+                  {[92, 100].map((h, i) => (
+                    <div key={i} className="flex-1 rounded-sm bg-indigo-400" style={{ height: `${h}%` }} />
+                  ))}
+                  {[96, 104, 110].map((h, i) => (
+                    <div key={i} className="flex-1 rounded-sm bg-indigo-200 opacity-50 border border-dashed border-indigo-300" style={{ height: `${Math.min(h, 100)}%` }} />
+                  ))}
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1.5">3-month forecast · <span className="text-green-600 font-medium">£6,240</span></p>
+              </div>
+            </div>
+
+            {/* Churn risk */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 overflow-hidden">
+              <div className="mb-5">
+                <h3 className="text-base font-semibold text-gray-900 mb-1">Churn risk alerts</h3>
+                <p className="text-sm text-gray-500">Customers flagged by name before they cancel.</p>
+              </div>
+              <div className="space-y-2">
+                <div className="bg-amber-50 border border-amber-100 rounded-xl px-3.5 py-3">
+                  <p className="text-xs font-semibold text-amber-900">jane@acme.com</p>
+                  <p className="text-[11px] text-amber-600 mt-0.5">Past due · 8 days overdue · £79/mo</p>
+                  <div className="flex gap-2 mt-2">
+                    <span className="text-[11px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">Draft email →</span>
+                  </div>
+                </div>
+                <div className="bg-amber-50 border border-amber-100 rounded-xl px-3.5 py-3">
+                  <p className="text-xs font-semibold text-amber-900">mark@startup.io</p>
+                  <p className="text-[11px] text-amber-600 mt-0.5">Past due · 3 days overdue · £29/mo</p>
+                  <div className="flex gap-2 mt-2">
+                    <span className="text-[11px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">Draft email →</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* AI briefing */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 overflow-hidden">
+              <div className="mb-5">
+                <h3 className="text-base font-semibold text-gray-900 mb-1">Daily AI briefing</h3>
+                <p className="text-sm text-gray-500">Plain-English summary every time you open the dashboard.</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-3">Your briefing</p>
+                <p className="text-sm text-gray-700 leading-relaxed">Jane and Mark both have overdue payments — reach out today before they cancel. MRR is up £340 this month driven by two new Pro customers. Your 3-month forecast sits at <span className="text-green-600 font-medium">£6,240</span>.</p>
+                <span className="inline-block w-1 h-3.5 bg-gray-300 ml-0.5 animate-pulse rounded-sm" />
+              </div>
+            </div>
+
+            {/* AI email draft — spans 2 cols */}
+            <div className="md:col-span-2 bg-white rounded-2xl border border-gray-200 p-6 overflow-hidden">
+              <div className="mb-5">
+                <h3 className="text-base font-semibold text-gray-900 mb-1">AI-drafted outreach emails</h3>
+                <p className="text-sm text-gray-500">One click writes a personal, human email to every at-risk customer — ready to copy and send.</p>
+              </div>
+              <div className="bg-amber-50 border border-amber-100 rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div>
+                    <p className="text-xs font-semibold text-amber-900">jane@acme.com</p>
+                    <p className="text-[11px] text-amber-600">Past due · 8 days overdue — reach out before they cancel.</p>
+                  </div>
+                  <span className="text-xs font-semibold text-amber-700">Hide draft</span>
+                </div>
+                <div className="bg-white border-t border-amber-100 px-4 py-4">
+                  <p className="text-sm text-gray-700 leading-relaxed">Hey Jane — just checking in. I noticed your payment didn't go through this month and wanted to reach out personally before anything got interrupted. You've been with us for 14 months and I'd hate to lose you over something we can sort out quickly. If it's easier, here's the link to update your card: <span className="text-indigo-500">billing.stripe.com/…</span></p>
+                  <div className="flex gap-3 mt-3">
+                    <span className="text-xs font-medium text-indigo-600">Copy to clipboard</span>
+                    <span className="text-xs text-gray-400">Regenerate</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Conversational chat */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 overflow-hidden">
+              <div className="mb-5">
+                <h3 className="text-base font-semibold text-gray-900 mb-1">Conversational revenue chat</h3>
+                <p className="text-sm text-gray-500">Ask anything about your customers and revenue.</p>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-end">
+                  <div className="bg-indigo-600 text-white text-xs rounded-2xl px-3.5 py-2 max-w-[80%]">Who should I reach out to today?</div>
+                </div>
+                <div className="flex justify-start">
+                  <div className="text-xs text-gray-700 leading-relaxed max-w-[90%]">Jane and Mark both have overdue payments. Jane's been a customer for 14 months — she's worth a personal note today.</div>
+                </div>
+                <div className="flex justify-end">
+                  <div className="bg-indigo-600 text-white text-xs rounded-2xl px-3.5 py-2 max-w-[80%]">What's driving growth this month?</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Weekly digest */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 overflow-hidden">
+              <div className="mb-5">
+                <h3 className="text-base font-semibold text-gray-900 mb-1">Weekly email digest</h3>
+                <p className="text-sm text-gray-500">A summary of your week delivered to your inbox every Monday.</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+                <p className="text-[10px] text-gray-400 mb-2">Monday 9:00 AM · from RevInt</p>
+                <p className="text-xs font-semibold text-gray-800 mb-1">Your week: MRR up £340, 1 customer at risk</p>
+                <div className="space-y-1.5 mt-2">
+                  {[
+                    { dot: "bg-green-500", text: "2 new customers · +£158 MRR" },
+                    { dot: "bg-amber-400", text: "1 at risk · jane@acme.com" },
+                    { dot: "bg-indigo-400", text: "Forecast: £6,240 in 3 months" },
+                  ].map(({ dot, text }) => (
+                    <div key={text} className="flex items-center gap-2">
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot}`} />
+                      <p className="text-[11px] text-gray-600">{text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Customer detail */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 overflow-hidden">
+              <div className="mb-5">
+                <h3 className="text-base font-semibold text-gray-900 mb-1">Customer detail pages</h3>
+                <p className="text-sm text-gray-500">Full payment history and status for every customer.</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl border border-gray-100 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-800">Jane Smith</p>
+                    <p className="text-[11px] text-gray-400">jane@acme.com</p>
+                  </div>
+                  <span className="text-[11px] bg-amber-100 text-amber-700 font-semibold px-2 py-0.5 rounded-full">At risk</span>
+                </div>
+                <div className="space-y-1.5">
+                  {[
+                    { label: "Plan", value: "Pro · £79/mo" },
+                    { label: "Customer for", value: "14 months" },
+                    { label: "Total paid", value: "£1,106" },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex justify-between">
+                      <p className="text-[11px] text-gray-400">{label}</p>
+                      <p className="text-[11px] font-medium text-gray-700">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
