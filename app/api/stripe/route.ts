@@ -32,10 +32,32 @@ export async function GET(request: NextRequest) {
       stripe.subscriptions.list({ status: "unpaid", limit: 100, expand: ["data.customer"] }).autoPagingToArray({ limit: 1000 }),
     ]);
 
-    // Build set of customers with an active subscription
-    const activeCustomerIds = new Set<string>(
-      activeSubs.map((s: any) => typeof s.customer === "string" ? s.customer : s.customer?.id).filter(Boolean)
-    );
+    // Build set of customers with an active subscription + MRR per customer from subscription data
+    // (Subscription items have expanded price objects; invoice line items do not by default)
+    const activeCustomerIds = new Set<string>();
+    const mrrByCustomer: Record<string, { mrr: number; planName: string; priceId: string }> = {};
+
+    activeSubs.forEach((sub: any) => {
+      const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
+      if (!customerId) return;
+      activeCustomerIds.add(customerId);
+      const item = sub.items?.data?.[0];
+      const price = item?.price;
+      if (!price) return;
+      const unitAmount = price.unit_amount || 0;
+      const quantity = item.quantity || 1;
+      const interval = price.recurring?.interval;
+      const ic = price.recurring?.interval_count || 1;
+      let monthly = unitAmount * quantity;
+      if (interval === "year") monthly = Math.round(monthly / (12 * ic));
+      else if (interval === "week") monthly = Math.round((monthly * 52) / (12 * ic));
+      else monthly = Math.round(monthly / ic);
+      mrrByCustomer[customerId] = {
+        mrr: monthly,
+        planName: price.nickname || price.product?.name || "Unknown plan",
+        priceId: price.id,
+      };
+    });
 
     // 🧠 Build customers from invoices
     const customerMap: Record<string, any> = {};
@@ -199,6 +221,7 @@ export async function GET(request: NextRequest) {
       churnEvents,
       pastDueInvoices,
       atRiskSubscriptions,
+      mrrByCustomer,
     });
 
   } catch (error) {

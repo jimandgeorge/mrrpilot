@@ -260,11 +260,15 @@ export default function Home() {
       if (inv.customer && inv.customer_email) customerEmailMap[inv.customer] = inv.customer_email;
     });
 
-    // MRR — active customers only, normalised to monthly
+    // MRR — sourced from active subscription data (prices are expanded there, not on invoice line items)
+    const mrrByCustomer: Record<string, { mrr: number; planName: string; priceId: string }> = data.mrrByCustomer || {};
+    let totalMRR = 0;
+    Object.values(mrrByCustomer).forEach((c: any) => { totalMRR += c.mrr; });
+
+    // Still need latestByCustomer for invoice-based calculations (NRR, waterfall, breakdown)
     const churnedIdSet = new Set<string>(
       (data.customers || []).filter((c: any) => c.churned).map((c: any) => c.id)
     );
-    let totalMRR = 0;
     const latestByCustomer: Record<string, any> = {};
     invoices.forEach((inv: any) => {
       const customerId = inv.customer;
@@ -274,21 +278,9 @@ export default function Home() {
         latestByCustomer[customerId] = inv;
       }
     });
-    Object.values(latestByCustomer).forEach((inv: any) => {
-      const line = inv.lines?.data?.[0];
-      const interval = line?.price?.recurring?.interval;
-      const intervalCount = line?.price?.recurring?.interval_count || 1;
-      // Use unit_amount (base price) not amount_paid — avoids backdated invoice inflation
-      const unitAmount = line?.price?.unit_amount || 0;
-      const quantity = line?.quantity || 1;
-      const amount = unitAmount * quantity;
-      if (interval === "year") totalMRR += Math.round(amount / (12 * intervalCount));
-      else if (interval === "week") totalMRR += Math.round((amount * 52) / (12 * intervalCount));
-      else totalMRR += Math.round(amount / intervalCount);
-    });
 
     // ARPU
-    const activeCustomerCount = Object.keys(latestByCustomer).length;
+    const activeCustomerCount = Object.keys(mrrByCustomer).length;
     const calcArpu = activeCustomerCount > 0 ? Math.round(totalMRR / activeCustomerCount) : 0;
 
     // LTV = ARPU / monthly churn rate (churns last 30 days / active customers)
@@ -297,24 +289,13 @@ export default function Home() {
     const monthlyChurnRate = activeCustomerCount > 0 ? recentChurnCount / activeCustomerCount : 0;
     const calcLtv = monthlyChurnRate > 0 ? Math.round(calcArpu / monthlyChurnRate) : null;
 
-    // Revenue by plan — group active customers' latest invoice by price
+    // Revenue by plan — sourced from subscription data
     const planMap: Record<string, { name: string; mrr: number; customers: number }> = {};
-    Object.values(latestByCustomer).forEach((inv: any) => {
-      const line = inv.lines?.data?.[0];
-      const price = line?.price;
-      const interval = price?.recurring?.interval;
-      const intervalCount = price?.recurring?.interval_count || 1;
-      const planKey = price?.id || "unknown";
-      const unitAmount = price?.unit_amount || 0;
-      const planName = price?.nickname ||
-        (unitAmount > 0 ? `£${(unitAmount / 100).toLocaleString("en-GB")}/${interval === "year" ? "yr" : interval === "week" ? "wk" : "mo"}` : "Unknown plan");
-      let monthly = inv.amount_paid || 0;
-      if (interval === "year") monthly = Math.round(monthly / (12 * intervalCount));
-      else if (interval === "week") monthly = Math.round((monthly * 52) / (12 * intervalCount));
-      else monthly = Math.round(monthly / intervalCount);
-      if (!planMap[planKey]) planMap[planKey] = { name: planName, mrr: 0, customers: 0 };
-      planMap[planKey].mrr += monthly;
-      planMap[planKey].customers += 1;
+    Object.values(mrrByCustomer).forEach((c: any) => {
+      const key = c.priceId || "unknown";
+      if (!planMap[key]) planMap[key] = { name: c.planName, mrr: 0, customers: 0 };
+      planMap[key].mrr += c.mrr;
+      planMap[key].customers += 1;
     });
     const planTotal = Object.values(planMap).reduce((s, p) => s + p.mrr, 0);
     const calcPlanRevenue = Object.values(planMap)
