@@ -107,7 +107,7 @@ export default function Home() {
   const [nrr, setNrr] = useState<number | null>(null);
   const [ltv, setLtv] = useState<number | null>(null);
   const [quickRatio, setQuickRatio] = useState<number | null>(null);
-  const [churnRisk, setChurnRisk] = useState<{ id: string; email: string; daysPastDue: number; mrr: number }[]>([]);
+  const [churnRisk, setChurnRisk] = useState<{ id: string; email: string; daysPastDue: number; mrr: number; planName?: string }[]>([]);
   const [mrrWaterfall, setMrrWaterfall] = useState<{ month: string; new: number; expansion: number; contraction: number; churn: number; net: number }[]>([]);
   const [planRevenue, setPlanRevenue] = useState<{ name: string; mrr: number; customers: number; pct: number }[]>([]);
   const [pastDue, setPastDue] = useState<{ id: string; email: string; amount: number; daysOverdue: number; hostedUrl: string | null }[]>([]);
@@ -117,6 +117,8 @@ export default function Home() {
   const [chatInput, setChatInput] = useState("");
   const [chatStreaming, setChatStreaming] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  const [emailDrafts, setEmailDrafts] = useState<Record<string, { content: string; loading: boolean; open: boolean }>>({});
 
   // Load goal from localStorage
   useEffect(() => {
@@ -228,6 +230,32 @@ export default function Home() {
       // fail silently
     }
     setChatStreaming(false);
+  }
+
+  async function draftEmail(customerId: string, email: string, plan: string, mrrVal: number, daysPastDue: number) {
+    setEmailDrafts(prev => ({ ...prev, [customerId]: { content: "", loading: true, open: true } }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const customer = (rawData?.customers || []).find((c: any) => c.id === customerId);
+      const monthsAsCustomer = customer ? Math.max(1, Math.round(customer.payments)) : 1;
+      const totalPaid = customer ? customer.total : 0;
+      const res = await fetch("/api/draft-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
+        body: JSON.stringify({ email, plan, mrr: mrrVal, daysPastDue, monthsAsCustomer, totalPaid }),
+      });
+      if (!res.ok || !res.body) { setEmailDrafts(prev => ({ ...prev, [customerId]: { content: "Failed to generate email.", loading: false, open: true } })); return; }
+      setEmailDrafts(prev => ({ ...prev, [customerId]: { ...prev[customerId], loading: false } }));
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        setEmailDrafts(prev => ({ ...prev, [customerId]: { ...prev[customerId], content: prev[customerId].content + decoder.decode(value, { stream: true }) } }));
+      }
+    } catch {
+      setEmailDrafts(prev => ({ ...prev, [customerId]: { content: "Failed to generate email.", loading: false, open: true } }));
+    }
   }
 
   function saveGoal() {
@@ -840,15 +868,65 @@ export default function Home() {
           )}
         </div>
       ))}
-      {churnRisk.map((c) => (
-        <Link key={c.id} href={`/customers/${c.id}`}
-          className="flex items-center justify-between bg-amber-50 border border-amber-100 rounded-xl px-5 py-3.5 hover:bg-amber-100/60 transition-colors">
-          <p className="text-sm text-amber-900 leading-relaxed">
-            <span className="font-semibold">{c.email}</span> subscription is past due{c.daysPastDue > 0 ? ` · ${c.daysPastDue} day${c.daysPastDue !== 1 ? "s" : ""} overdue` : ""} — reach out before they cancel.
-          </p>
-          <span className="shrink-0 text-xs font-semibold text-amber-600 ml-4">View →</span>
-        </Link>
-      ))}
+      {churnRisk.map((c) => {
+        const draft = emailDrafts[c.id];
+        const planName = c.planName || (rawData?.mrrByCustomer?.[c.id]?.planName) || "Unknown";
+        return (
+          <div key={c.id} className="bg-amber-50 border border-amber-100 rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5">
+              <p className="text-sm text-amber-900 leading-relaxed">
+                <span className="font-semibold">{c.email}</span> subscription is past due{c.daysPastDue > 0 ? ` · ${c.daysPastDue} day${c.daysPastDue !== 1 ? "s" : ""} overdue` : ""} — reach out before they cancel.
+              </p>
+              <div className="shrink-0 flex items-center gap-3 ml-4">
+                <button
+                  onClick={() => {
+                    if (draft?.open) {
+                      setEmailDrafts(prev => ({ ...prev, [c.id]: { ...prev[c.id], open: false } }));
+                    } else if (draft?.content) {
+                      setEmailDrafts(prev => ({ ...prev, [c.id]: { ...prev[c.id], open: true } }));
+                    } else {
+                      draftEmail(c.id, c.email, planName, c.mrr, c.daysPastDue);
+                    }
+                  }}
+                  className="text-xs font-semibold text-amber-700 hover:text-amber-900 transition-colors"
+                >
+                  {draft?.loading ? "Writing…" : draft?.open ? "Hide draft" : draft?.content ? "Show draft" : "Draft email →"}
+                </button>
+                <Link href={`/customers/${c.id}`} className="text-xs font-semibold text-amber-600 hover:text-amber-800 transition-colors">View →</Link>
+              </div>
+            </div>
+            {draft?.open && (
+              <div className="border-t border-amber-100 bg-white px-5 py-4">
+                {draft.loading ? (
+                  <div className="space-y-2 animate-pulse">
+                    <div className="h-4 bg-gray-100 rounded w-full" />
+                    <div className="h-4 bg-gray-100 rounded w-11/12" />
+                    <div className="h-4 bg-gray-100 rounded w-4/5" />
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{draft.content}</p>
+                    <div className="flex items-center gap-3 mt-3">
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(draft.content); }}
+                        className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+                      >
+                        Copy to clipboard
+                      </button>
+                      <button
+                        onClick={() => draftEmail(c.id, c.email, planName, c.mrr, c.daysPastDue)}
+                        className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        Regenerate
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
 
       {/* Numbers strip */}
       <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4 flex items-center divide-x divide-gray-100 overflow-x-auto">
