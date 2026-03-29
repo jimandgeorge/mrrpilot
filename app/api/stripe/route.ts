@@ -24,12 +24,18 @@ export async function GET(request: NextRequest) {
 
   try {
     // 📡 Fetch Stripe data (paginated)
-    const [invoices, events, pastDueSubs, unpaidSubs] = await Promise.all([
+    const [invoices, events, activeSubs, pastDueSubs, unpaidSubs] = await Promise.all([
       stripe.invoices.list({ limit: 100 }).autoPagingToArray({ limit: 10000 }),
       stripe.events.list({ limit: 100, type: "customer.subscription.deleted" }).autoPagingToArray({ limit: 10000 }),
+      stripe.subscriptions.list({ status: "active", limit: 100 }).autoPagingToArray({ limit: 10000 }),
       stripe.subscriptions.list({ status: "past_due", limit: 100, expand: ["data.customer"] }).autoPagingToArray({ limit: 1000 }),
       stripe.subscriptions.list({ status: "unpaid", limit: 100, expand: ["data.customer"] }).autoPagingToArray({ limit: 1000 }),
     ]);
+
+    // Build set of customers with an active subscription
+    const activeCustomerIds = new Set<string>(
+      activeSubs.map((s: any) => typeof s.customer === "string" ? s.customer : s.customer?.id).filter(Boolean)
+    );
 
     // 🧠 Build customers from invoices
     const customerMap: Record<string, any> = {};
@@ -85,16 +91,12 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Mark churned only if churn event exists AND last payment was more than 35 days ago
+    // Mark churned: had a cancellation event AND no active subscription
     const now = Math.floor(Date.now() / 1000);
-    const thirtyFiveDaysAgo = now - 35 * 24 * 60 * 60;
 
-    invoices.forEach((inv: any) => {
-      if (!inv.customer) return;
-      const churnAt = latestChurnAt[inv.customer];
-      const invoiceAt = latestInvoiceAt[inv.customer];
-      if (churnAt && invoiceAt < thirtyFiveDaysAgo) {
-        if (customerMap[inv.customer]) customerMap[inv.customer].churned = true;
+    Object.keys(latestChurnAt).forEach((customerId) => {
+      if (!activeCustomerIds.has(customerId) && customerMap[customerId]) {
+        customerMap[customerId].churned = true;
       }
     });
 

@@ -278,7 +278,10 @@ export default function Home() {
       const line = inv.lines?.data?.[0];
       const interval = line?.price?.recurring?.interval;
       const intervalCount = line?.price?.recurring?.interval_count || 1;
-      const amount = inv.amount_paid || 0;
+      // Use unit_amount (base price) not amount_paid — avoids backdated invoice inflation
+      const unitAmount = line?.price?.unit_amount || 0;
+      const quantity = line?.quantity || 1;
+      const amount = unitAmount * quantity;
       if (interval === "year") totalMRR += Math.round(amount / (12 * intervalCount));
       else if (interval === "week") totalMRR += Math.round((amount * 52) / (12 * intervalCount));
       else totalMRR += Math.round(amount / intervalCount);
