@@ -31,9 +31,9 @@ export default function LandingPage() {
           </p>
           <div className="flex items-center gap-4">
             <Link href="/login" className="bg-indigo-600 text-white font-medium px-6 py-3 rounded-xl hover:bg-indigo-700 transition-colors flex items-center gap-2">
-              Start for free <ArrowRight size={15} />
+              Start free trial <ArrowRight size={15} />
             </Link>
-            <p className="text-sm text-gray-400">No credit card required</p>
+            <p className="text-sm text-gray-400">14 days free · no card required</p>
           </div>
         </div>
 
@@ -122,44 +122,34 @@ export default function LandingPage() {
       <section className="max-w-6xl mx-auto px-6 py-24">
         <div className="text-center mb-14">
           <h2 className="text-3xl font-bold text-gray-900 mb-3">Simple, honest pricing</h2>
-          <p className="text-gray-500">Start free. Upgrade when it's paying for itself.</p>
+          <p className="text-gray-500">Try free for 14 days. Cancel anytime.</p>
         </div>
-        <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-          {/* Free */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-8">
-            <p className="text-sm font-semibold text-gray-500 mb-1">Free</p>
-            <p className="text-4xl font-bold text-gray-900 mb-1">£0</p>
-            <p className="text-sm text-gray-400 mb-8">Forever</p>
-            <ul className="space-y-3 mb-8">
-              {["Full dashboard access", "MRR, ARPU, NRR, churn rate", "Churn risk scoring", "AI revenue briefings", "Customer detail pages"].map((f) => (
-                <li key={f} className="flex items-center gap-2.5 text-sm text-gray-700">
-                  <Check size={14} className="text-green-500 shrink-0" />
-                  {f}
-                </li>
-              ))}
-            </ul>
-            <Link href="/login" className="w-full block text-center border border-gray-200 text-gray-700 font-medium py-2.5 rounded-xl hover:bg-gray-50 transition-colors text-sm">
-              Get started free
-            </Link>
-          </div>
-          {/* Pro — coming soon */}
-          <div className="bg-indigo-600 rounded-2xl p-8 text-white relative overflow-hidden">
-            <div className="absolute top-4 right-4 bg-white/20 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full">Coming soon</div>
-            <p className="text-sm font-semibold text-indigo-200 mb-1">Pro</p>
+        <div className="max-w-sm mx-auto">
+          <div className="bg-indigo-600 rounded-2xl p-8 text-white">
+            <p className="text-sm font-semibold text-indigo-200 mb-1">RevInt</p>
             <p className="text-4xl font-bold mb-1">£29<span className="text-xl font-normal text-indigo-300">/mo</span></p>
-            <p className="text-sm text-indigo-300 mb-8">Per workspace</p>
+            <p className="text-sm text-indigo-300 mb-8">14-day free trial · no credit card required</p>
             <ul className="space-y-3 mb-8">
-              {["Everything in Free", "Weekly email digest", "Slack alerts for churn & milestones", "Cohort retention analysis", "Multi-account Stripe", "Team members"].map((f) => (
+              {[
+                "Full dashboard — MRR, ARPU, NRR, forecast",
+                "Churn risk alerts by name",
+                "AI-drafted outreach emails",
+                "Daily AI revenue briefing",
+                "Conversational revenue chat",
+                "Weekly email digest",
+                "Customer detail pages",
+              ].map((f) => (
                 <li key={f} className="flex items-center gap-2.5 text-sm text-indigo-100">
                   <Check size={14} className="text-indigo-300 shrink-0" />
                   {f}
                 </li>
               ))}
             </ul>
-            <button disabled className="w-full block text-center bg-white/20 text-white font-medium py-2.5 rounded-xl text-sm cursor-not-allowed opacity-70">
-              Notify me
-            </button>
+            <Link href="/login" className="w-full block text-center bg-white text-indigo-600 font-semibold py-3 rounded-xl hover:bg-indigo-50 transition-colors text-sm">
+              Start free trial
+            </Link>
           </div>
+          <p className="text-center text-xs text-gray-400 mt-4">One saved customer pays for months of RevInt.</p>
         </div>
       </section>
 
@@ -167,9 +157,9 @@ export default function LandingPage() {
       <section className="bg-indigo-600 py-16 px-6">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-3xl font-bold text-white mb-3">Stop losing customers you could have kept.</h2>
-          <p className="text-indigo-200 mb-8">Connect Stripe in 30 seconds. Know who's at risk today.</p>
+          <p className="text-indigo-200 mb-8">Connect Stripe in 30 seconds. 14 days free, no card required.</p>
           <Link href="/login" className="inline-flex items-center gap-2 bg-white text-indigo-600 font-semibold px-8 py-3 rounded-xl hover:bg-indigo-50 transition-colors">
-            Get started free <ArrowRight size={15} />
+            Start free trial <ArrowRight size={15} />
           </Link>
         </div>
       </section>

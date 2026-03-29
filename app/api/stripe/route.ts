@@ -24,12 +24,13 @@ export async function GET(request: NextRequest) {
 
   try {
     // 📡 Fetch Stripe data (paginated)
-    const [invoices, events, activeSubs, pastDueSubs, unpaidSubs] = await Promise.all([
+    const [invoices, events, activeSubs, pastDueSubs, unpaidSubs, incompleteSubs] = await Promise.all([
       stripe.invoices.list({ limit: 100 }).autoPagingToArray({ limit: 10000 }),
       stripe.events.list({ limit: 100, type: "customer.subscription.deleted" }).autoPagingToArray({ limit: 10000 }),
       stripe.subscriptions.list({ status: "active", limit: 100 }).autoPagingToArray({ limit: 10000 }),
       stripe.subscriptions.list({ status: "past_due", limit: 100, expand: ["data.customer"] }).autoPagingToArray({ limit: 1000 }),
       stripe.subscriptions.list({ status: "unpaid", limit: 100, expand: ["data.customer"] }).autoPagingToArray({ limit: 1000 }),
+      stripe.subscriptions.list({ status: "incomplete", limit: 100, expand: ["data.customer"] }).autoPagingToArray({ limit: 1000 }),
     ]);
 
     // Build set of customers with an active subscription + MRR per customer from subscription data
@@ -180,7 +181,7 @@ export async function GET(request: NextRequest) {
     });
 
     // ⚠️ At-risk subscriptions (past_due or unpaid status)
-    const atRiskSubscriptions = [...pastDueSubs, ...unpaidSubs].map((sub: any) => {
+    const atRiskSubscriptions = [...pastDueSubs, ...unpaidSubs, ...incompleteSubs].map((sub: any) => {
       const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
       const email = typeof sub.customer === "object" && sub.customer?.email
         ? sub.customer.email
