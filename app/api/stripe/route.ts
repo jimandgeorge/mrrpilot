@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       else monthly = Math.round(monthly / ic);
       mrrByCustomer[customerId] = {
         mrr: monthly,
-        planName: price.nickname || price.product?.name || "Unknown plan",
+        planName: price.nickname || price.product?.name || `£${(monthly / 100).toLocaleString("en-GB", { maximumFractionDigits: 0 })}/mo`,
         priceId: price.id,
       };
     });
