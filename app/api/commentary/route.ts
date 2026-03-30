@@ -53,7 +53,7 @@ function buildPrompt(m: {
   const fmt = (p: number) => `£${(p / 100).toFixed(0)}`;
 
   const riskLine = m.churnRisk.length > 0
-    ? `Past-due subscriptions: ${m.churnRisk.map(c => `${c.email} (${c.daysPastDue} day${c.daysPastDue !== 1 ? "s" : ""} overdue, ${fmt(c.mrr)}/mo)`).join("; ")}.`
+    ? `Past-due subscriptions: ${m.churnRisk.map(c => `${c.email} (${c.daysPastDue === 0 ? "overdue today" : `${c.daysPastDue} day${c.daysPastDue !== 1 ? "s" : ""} overdue`}, ${fmt(c.mrr)}/mo)`).join("; ")}.`
     : "No subscriptions currently past due.";
 
   const trendLine = m.churnTrend.thisPeriod > m.churnTrend.lastPeriod

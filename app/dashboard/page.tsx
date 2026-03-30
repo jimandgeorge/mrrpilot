@@ -585,8 +585,8 @@ export default function Home() {
         mrr: Math.round(val / 100),
       }));
 
-    // 📈 Forecast — linear regression on last 6 months
-    let forecastedMrr = 0;
+    // 📈 Forecast — linear regression on last 6 months; fall back to current MRR if not enough history
+    let forecastedMrr = totalMRR; // flat projection as default
     if (history.length >= 2) {
       const recent = history.slice(-6);
       const n = recent.length;
