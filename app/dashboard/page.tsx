@@ -80,6 +80,7 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<Range>("7d");
+  const [billing, setBilling] = useState<{ daysLeft: number; isActive: boolean; trialExpired: boolean; status: string } | null>(null);
   const [rawData, setRawData] = useState<any>(null);
 
   const [mrr, setMrr] = useState(0);
@@ -131,6 +132,12 @@ export default function Home() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user?.email) setUserEmail(session.user.email);
+
+      // Fetch billing status (creates record for new users)
+      fetch("/api/billing/status", {
+        headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+      }).then(r => r.json()).then(setBilling).catch(() => {});
+
       const res = await fetch("/api/stripe", {
         headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
       });
@@ -782,6 +789,28 @@ export default function Home() {
           </button>
         </div>
       </div>
+
+      {/* Trial banner */}
+      {billing && billing.status === "trialing" && !billing.trialExpired && billing.daysLeft <= 7 && (
+        <div className="flex items-center justify-between bg-indigo-50 border border-indigo-100 rounded-xl px-5 py-3">
+          <p className="text-sm text-indigo-800">
+            {billing.daysLeft === 0
+              ? "Your trial ends today."
+              : `${billing.daysLeft} day${billing.daysLeft !== 1 ? "s" : ""} left in your trial.`}
+          </p>
+          <a href="/upgrade" className="shrink-0 text-xs font-semibold text-indigo-600 hover:text-indigo-800 ml-4 transition-colors">
+            Subscribe now →
+          </a>
+        </div>
+      )}
+      {billing?.trialExpired && (
+        <div className="flex items-center justify-between bg-red-50 border border-red-100 rounded-xl px-5 py-3">
+          <p className="text-sm text-red-800 font-medium">Your trial has ended — subscribe to keep access.</p>
+          <a href="/upgrade" className="shrink-0 text-xs font-semibold text-red-600 hover:text-red-800 ml-4 transition-colors">
+            Subscribe now →
+          </a>
+        </div>
+      )}
 
       {/* Briefing — the hero */}
       <div className="bg-white rounded-2xl border border-gray-200 p-7">
