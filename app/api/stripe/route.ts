@@ -195,7 +195,7 @@ export async function GET(request: NextRequest) {
       else if (interval === "week") mrr = Math.round((mrr * 52) / (12 * intervalCount));
       else mrr = Math.round(mrr / intervalCount);
       const daysPastDue = sub.current_period_end
-        ? Math.floor((now - sub.current_period_end) / 86400)
+        ? Math.max(0, Math.floor((now - sub.current_period_end) / 86400))
         : 0;
       const planName = item?.price?.nickname || item?.price?.product?.name || `£${(mrr / 100).toLocaleString("en-GB", { maximumFractionDigits: 0 })}/mo`;
       return { id: customerId, email, mrr, daysPastDue, status: sub.status, planName };

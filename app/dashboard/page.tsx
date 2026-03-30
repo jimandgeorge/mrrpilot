@@ -875,7 +875,7 @@ export default function Home() {
           <div key={c.id} className="bg-amber-50 border border-amber-100 rounded-xl overflow-hidden">
             <div className="flex items-center justify-between px-5 py-3.5">
               <p className="text-sm text-amber-900 leading-relaxed">
-                <span className="font-semibold">{c.email}</span> subscription is past due{c.daysPastDue > 0 ? ` · ${c.daysPastDue} day${c.daysPastDue !== 1 ? "s" : ""} overdue` : ""} — reach out before they cancel.
+                <span className="font-semibold">{c.email}</span> subscription is past due · {c.daysPastDue === 0 ? "overdue today" : `${c.daysPastDue} day${c.daysPastDue !== 1 ? "s" : ""} overdue`} — reach out before they cancel.
               </p>
               <div className="shrink-0 flex items-center gap-3 ml-4">
                 <button
