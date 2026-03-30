@@ -20,15 +20,12 @@ type ChurnEvent = {
   cancelledAt: number;
 };
 
-function daysSince(date: Date | string) {
-  return (Date.now() - new Date(date).getTime()) / (1000 * 60 * 60 * 24);
-}
-
 type Filter = "all" | "active" | "at_risk" | "churned";
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [churnReasonMap, setChurnReasonMap] = useState<Record<string, string>>({});
+  const [atRiskIds, setAtRiskIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [notConnected, setNotConnected] = useState(false);
   const [search, setSearch] = useState("");
@@ -47,6 +44,8 @@ export default function CustomersPage() {
           churnEvents.sort((a, b) => b.cancelledAt - a.cancelledAt).forEach((e) => {
             if (!reasonMap[e.email]) reasonMap[e.email] = e.label;
           });
+          const riskIds = new Set<string>((data.atRiskSubscriptions || []).map((s: any) => s.id));
+          setAtRiskIds(riskIds);
           setChurnReasonMap(reasonMap);
           setCustomers(sorted);
           setLoading(false);
@@ -59,7 +58,7 @@ export default function CustomersPage() {
       ["Email", "Total (£)", "Payments", "Avg Payment (£)", "Last Payment", "Status", "Churn Reason"],
       ...customers.map((c) => {
         const avg = c.payments > 0 ? c.total / c.payments : 0;
-        const isAtRisk = !c.churned && daysSince(c.lastPayment) > 30;
+        const isAtRisk = atRiskIds.has(c.id);
         const status = c.churned ? "Churned" : isAtRisk ? "At Risk" : "Active";
         return [
           c.email,
@@ -120,13 +119,13 @@ export default function CustomersPage() {
   }
 
   const activeCustomers = customers.filter((c) => !c.churned);
-  const atRiskCustomers = customers.filter((c) => !c.churned && daysSince(c.lastPayment) > 30);
+  const atRiskCustomers = customers.filter((c) => atRiskIds.has(c.id));
   const churnedCustomers = customers.filter((c) => c.churned);
   const avgCLTV = customers.length > 0 ? customers.reduce((s, c) => s + c.total, 0) / customers.length : 0;
 
   // Filter + search
   const filtered = customers.filter((c) => {
-    const isAtRisk = !c.churned && daysSince(c.lastPayment) > 30;
+    const isAtRisk = atRiskIds.has(c.id);
     const matchesFilter =
       filter === "all" ? true
       : filter === "active" ? (!c.churned && !isAtRisk)
@@ -226,7 +225,7 @@ export default function CustomersPage() {
         ) : (
           <ul>
             {filtered.map((c) => {
-              const isAtRisk = !c.churned && daysSince(c.lastPayment) > 30;
+              const isAtRisk = atRiskIds.has(c.id);
               const initial = c.email?.[0]?.toUpperCase() ?? "?";
               const avatarColor = c.churned
                 ? "bg-red-100 text-red-500"
