@@ -18,10 +18,13 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
 
+  const [confirmed, setConfirmed] = useState(false);
+
   useEffect(() => {
     const hash = new URLSearchParams(window.location.hash.slice(1));
     const desc = hash.get("error_description");
     if (desc) setError(desc.replace(/\+/g, " "));
+    if (hash.get("type") === "signup") setConfirmed(true);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") {
@@ -29,7 +32,11 @@ export default function LoginPage() {
         setMode("recovery");
       }
       if (event === "SIGNED_IN" && !isRecoveryRef.current) {
-        window.location.href = "/dashboard";
+        // New users go to onboarding; returning users get passed through
+        // Onboarding page will redirect to dashboard if Stripe is already connected
+        supabase.from("stripe_connections").select("id").limit(1).then(({ data }) => {
+          window.location.href = (data && data.length > 0) ? "/dashboard" : "/onboarding";
+        });
       }
     });
     return () => subscription.unsubscribe();
@@ -151,8 +158,19 @@ export default function LoginPage() {
             <p className="text-sm text-gray-400 mt-1">Revenue Intelligence</p>
           </div>
 
-          {/* Recovery flow */}
-          {mode === "recovery" ? (
+          {/* Email confirmed state */}
+          {confirmed ? (
+            <div className="text-center space-y-4">
+              <div className="w-14 h-14 bg-green-50 rounded-full flex items-center justify-center mx-auto">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Email confirmed!</h2>
+                <p className="text-sm text-gray-500 mt-1">Signing you in and taking you to setup…</p>
+              </div>
+              <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin mx-auto" />
+            </div>
+          ) : mode === "recovery" ? (
             <div>
               <h2 className="text-xl font-bold text-gray-900 mb-1">Set a new password</h2>
               <p className="text-sm text-gray-400 mb-6">Choose something at least 8 characters long.</p>
@@ -224,6 +242,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && (mode === "login" ? handleLogin() : handleSignUp())}
+                    autoComplete={mode === "login" ? "current-password" : "new-password"}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
                   />
                 </div>

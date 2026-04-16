@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getActiveStripeKey } from "@/lib/get-stripe-key";
 
 export async function GET(request: NextRequest) {
   // Resolve per-user Stripe key — no global fallback
@@ -10,15 +11,33 @@ export async function GET(request: NextRequest) {
   const { data: { user } } = await supabaseAdmin.auth.getUser(token);
   if (!user) return NextResponse.json({ notConnected: true });
 
-  const { data: conn } = await supabaseAdmin
-    .from("stripe_connections")
-    .select("stripe_secret_key")
-    .eq("user_id", user.id)
-    .single();
+  const stripeKey = await getActiveStripeKey(user.id);
+  if (!stripeKey) return NextResponse.json({ notConnected: true });
 
-  if (!conn?.stripe_secret_key) return NextResponse.json({ notConnected: true });
+  // Rate limit manual refreshes to once per 60 seconds
+  const isManual = request.nextUrl.searchParams.get("manual") === "1";
+  if (isManual) {
+    const { data: billing } = await supabaseAdmin
+      .from("user_billing")
+      .select("last_stripe_refresh")
+      .eq("user_id", user.id)
+      .single();
 
-  const stripeKey = conn.stripe_secret_key;
+    if (billing?.last_stripe_refresh) {
+      const secondsLeft = Math.ceil(
+        (new Date(billing.last_stripe_refresh).getTime() + 60000 - Date.now()) / 1000
+      );
+      if (secondsLeft > 0) {
+        return NextResponse.json({ rateLimited: true, secondsLeft });
+      }
+    }
+  }
+
+  // Record refresh time
+  await supabaseAdmin
+    .from("user_billing")
+    .update({ last_stripe_refresh: new Date().toISOString() })
+    .eq("user_id", user.id);
 
   const stripe = new Stripe(stripeKey, { apiVersion: "2026-03-25.dahlia" });
 

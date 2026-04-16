@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { HelpCircle, RefreshCw, Plug, AlertTriangle, TrendingUp, TrendingDown, UserPlus, UserMinus, AlertCircle, Lightbulb, type LucideIcon } from "lucide-react";
+import { HelpCircle, RefreshCw, Plug, AlertTriangle, TrendingUp, TrendingDown, UserPlus, UserMinus, AlertCircle, Lightbulb, Lock, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 
 function useCountUp(target: number, duration = 900) {
@@ -79,6 +79,8 @@ export default function Home() {
   const [fetchError, setFetchError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [cooldownLeft, setCooldownLeft] = useState(0);
   const [range, setRange] = useState<Range>("7d");
   const [billing, setBilling] = useState<{ daysLeft: number; isActive: boolean; trialExpired: boolean; status: string } | null>(null);
   const [rawData, setRawData] = useState<any>(null);
@@ -120,32 +122,59 @@ export default function Home() {
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
   const [emailDrafts, setEmailDrafts] = useState<Record<string, { content: string; loading: boolean; open: boolean }>>({});
+  const [mrrMoM, setMrrMoM] = useState<number | null>(null);
 
-  // Load goal from localStorage
+  // Load goal from API (falls back to localStorage for existing users)
   useEffect(() => {
-    const saved = localStorage.getItem("revint_goal");
-    if (saved) setMrrGoal(Number(saved));
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) return;
+      fetch("/api/user/goal", { headers: { Authorization: `Bearer ${session.access_token}` } })
+        .then(r => r.json())
+        .then(d => {
+          if (d.mrr_goal > 0) {
+            setMrrGoal(d.mrr_goal);
+          } else {
+            const saved = localStorage.getItem("revint_goal");
+            if (saved) setMrrGoal(Number(saved));
+          }
+        })
+        .catch(() => {
+          const saved = localStorage.getItem("revint_goal");
+          if (saved) setMrrGoal(Number(saved));
+        });
+    });
   }, []);
 
-  async function loadData() {
+  async function loadData(manual = false) {
     setFetchError(false);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user?.email) setUserEmail(session.user.email);
 
-      // Fetch billing status (creates record for new users)
-      fetch("/api/billing/status", {
+      // Fetch billing status — blocking so we can gate expired trials
+      const billingRes = await fetch("/api/billing/status", {
         headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
-      }).then(r => r.json()).then(setBilling).catch(() => {});
+      });
+      const billingData = await billingRes.json();
+      setBilling(billingData);
+      if (billingData.trialExpired) { setLoading(false); setRefreshing(false); return; }
 
-      const res = await fetch("/api/stripe", {
+      const url = manual ? "/api/stripe?manual=1" : "/api/stripe";
+      const res = await fetch(url, {
         headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
       });
       const data = await res.json();
+      if (data.rateLimited) {
+        setCooldownUntil(Date.now() + data.secondsLeft * 1000);
+        setRefreshing(false);
+        setLoading(false);
+        return;
+      }
       if (data.notConnected) { setNotConnected(true); setLoading(false); return; }
       setRawData(data);
       setPastDue(data.pastDueInvoices || []);
       setChurnRisk(data.atRiskSubscriptions || []);
+      setCooldownUntil(Date.now() + 60000);
     } catch {
       setFetchError(true);
       setLoading(false);
@@ -154,6 +183,18 @@ export default function Home() {
   }
 
   useEffect(() => { loadData(); }, []);
+
+  // Countdown ticker
+  useEffect(() => {
+    if (cooldownUntil <= Date.now()) return;
+    setCooldownLeft(Math.ceil((cooldownUntil - Date.now()) / 1000));
+    const id = setInterval(() => {
+      const left = Math.ceil((cooldownUntil - Date.now()) / 1000);
+      if (left <= 0) { setCooldownLeft(0); clearInterval(id); }
+      else setCooldownLeft(left);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [cooldownUntil]);
 
   useEffect(() => {
     if (rawData) processData(rawData, range);
@@ -265,15 +306,18 @@ export default function Home() {
     }
   }
 
-  function saveGoal() {
+  async function saveGoal() {
     const val = parseFloat(goalInput);
-    if (!isNaN(val) && val > 0) {
-      const pence = Math.round(val * 100);
-      setMrrGoal(pence);
-      localStorage.setItem("revint_goal", String(pence));
-    }
+    const pence = !isNaN(val) && val > 0 ? Math.round(val * 100) : 0;
+    setMrrGoal(pence);
     setEditingGoal(false);
     setGoalInput("");
+    const { data: { session } } = await supabase.auth.getSession();
+    fetch("/api/user/goal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
+      body: JSON.stringify({ mrr_goal: pence }),
+    }).catch(() => {});
   }
 
   function processData(data: any, selectedRange: Range) {
@@ -464,7 +508,7 @@ export default function Home() {
       return 0;
     });
 
-    // Period revenue breakdown
+    // Period revenue breakdown — sourced from waterfall last complete month so it matches MRR Movement
     let periodRevenue = 0, churnAmount = 0, newRevenue = 0, upgradeRevenue = 0, renewalRevenue = 0;
     const countedNew: Record<string, boolean> = {};
     parsedEvents.forEach((event) => {
@@ -478,6 +522,25 @@ export default function Home() {
         if (event.type === "renewal") renewalRevenue += event.amount;
       }
     });
+
+    // Override breakdown with last complete calendar month from waterfall (matches MRR Movement chart)
+    const wfMonthsTemp = Object.keys(monthCustomerMrr).sort();
+    // Use second-to-last month (last complete month — current month is in progress)
+    const lastCompleteMonthKey = wfMonthsTemp.length >= 2 ? wfMonthsTemp[wfMonthsTemp.length - 2] : wfMonthsTemp[wfMonthsTemp.length - 1];
+    if (lastCompleteMonthKey) {
+      const prevMonthKey = wfMonthsTemp[wfMonthsTemp.indexOf(lastCompleteMonthKey) - 1];
+      const prevMonthData = prevMonthKey ? monthCustomerMrr[prevMonthKey] : {};
+      const curMonthData = monthCustomerMrr[lastCompleteMonthKey];
+      let wfNew = 0, wfExpansion = 0, wfRenewal = 0;
+      Object.entries(curMonthData).forEach(([cid, mrr]) => {
+        if (!prevMonthData[cid]) wfNew += mrr;
+        else if (mrr > prevMonthData[cid]) wfExpansion += mrr - prevMonthData[cid];
+        else wfRenewal += mrr; // same or lower = renewal (contraction counted separately in waterfall)
+      });
+      newRevenue = wfNew;
+      upgradeRevenue = wfExpansion;
+      renewalRevenue = wfRenewal;
+    }
 
     // Churn rate
     const customersBeforePeriod = new Set<string>();
@@ -592,6 +655,14 @@ export default function Home() {
         mrr: Math.round(val / 100),
       }));
 
+    // MoM growth — compare last two complete months
+    let calcMrrMoM: number | null = null;
+    if (history.length >= 2) {
+      const prev = history[history.length - 2].mrr ?? 0;
+      const curr = history[history.length - 1].mrr ?? 0;
+      if (prev > 0) calcMrrMoM = Math.round(((curr - prev) / prev) * 100);
+    }
+
     // 📈 Forecast — linear regression on last 6 months; fall back to current MRR if not enough history
     let forecastedMrr = totalMRR; // flat projection as default
     if (history.length >= 2) {
@@ -664,6 +735,7 @@ export default function Home() {
       .map(([key, count]) => ({ month: new Date(key + "-01").toLocaleDateString("en-GB", { month: "short", year: "2-digit" }), churns: count }));
 
     setMrr(totalMRR);
+    setMrrMoM(calcMrrMoM);
     setArpu(calcArpu);
     setNrr(calcNrr);
     setLtv(calcLtv);
@@ -744,6 +816,24 @@ export default function Home() {
     );
   }
 
+  if (billing?.trialExpired) {
+    return (
+      <div className="min-h-[80vh] flex flex-col items-center justify-center px-6 text-center">
+        <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6">
+          <Lock size={24} className="text-indigo-400" />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-3">Your trial has ended</h2>
+        <p className="text-sm text-gray-500 mb-8 leading-relaxed max-w-xs">
+          Subscribe to keep your revenue insights, churn alerts, and AI briefings.
+        </p>
+        <a href="/upgrade" className="inline-block bg-indigo-600 text-white text-sm font-semibold py-3 px-8 rounded-xl hover:bg-indigo-700 transition-colors">
+          Subscribe — £29/mo →
+        </a>
+        <p className="text-xs text-gray-400 mt-4">Cancel anytime · No commitment.</p>
+      </div>
+    );
+  }
+
   const typeConfig = {
     new:     { label: "New",     border: "border-l-green-400",  pill: "bg-green-50 text-green-700"   },
     renewal: { label: "Renewal", border: "border-l-blue-300",   pill: "bg-blue-50 text-blue-600"     },
@@ -783,22 +873,22 @@ export default function Home() {
               </button>
             ))}
           </div>
-          <button onClick={() => { setRefreshing(true); loadData(); }} disabled={refreshing}
-            className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50">
-            <RefreshCw size={12} className={`inline mr-1 ${refreshing ? "animate-spin" : ""}`} />{refreshing ? "Refreshing…" : "Refresh"}
+          <button onClick={() => { if (cooldownLeft > 0) return; setRefreshing(true); loadData(true); }} disabled={refreshing || cooldownLeft > 0}
+            className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 min-w-[90px]">
+            <RefreshCw size={12} className={`inline mr-1 ${refreshing ? "animate-spin" : ""}`} />{refreshing ? "Refreshing…" : cooldownLeft > 0 ? `${cooldownLeft}s` : "Refresh"}
           </button>
         </div>
       </div>
 
       {/* Trial banner */}
-      {billing && billing.status === "trialing" && !billing.trialExpired && billing.daysLeft <= 7 && (
-        <div className="flex items-center justify-between bg-indigo-50 border border-indigo-100 rounded-xl px-5 py-3">
-          <p className="text-sm text-indigo-800">
+      {billing && billing.status === "trialing" && !billing.trialExpired && (
+        <div className={`flex items-center justify-between border rounded-xl px-5 py-3 ${billing.daysLeft <= 3 ? "bg-amber-50 border-amber-100" : "bg-indigo-50 border-indigo-100"}`}>
+          <p className={`text-sm ${billing.daysLeft <= 3 ? "text-amber-800" : "text-indigo-800"}`}>
             {billing.daysLeft === 0
               ? "Your trial ends today."
-              : `${billing.daysLeft} day${billing.daysLeft !== 1 ? "s" : ""} left in your trial.`}
+              : `${billing.daysLeft} day${billing.daysLeft !== 1 ? "s" : ""} left in your free trial.`}
           </p>
-          <a href="/upgrade" className="shrink-0 text-xs font-semibold text-indigo-600 hover:text-indigo-800 ml-4 transition-colors">
+          <a href="/upgrade" className={`shrink-0 text-xs font-semibold ml-4 transition-colors ${billing.daysLeft <= 3 ? "text-amber-700 hover:text-amber-900" : "text-indigo-600 hover:text-indigo-800"}`}>
             Subscribe now →
           </a>
         </div>
@@ -993,7 +1083,7 @@ export default function Home() {
             onKeyDown={(e) => { if (e.key === "Enter") saveGoal(); if (e.key === "Escape") { setEditingGoal(false); setGoalInput(""); } }}
             className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" autoFocus />
           <button onClick={saveGoal} className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700">Save</button>
-          {mrrGoal > 0 && <button onClick={() => { setMrrGoal(0); localStorage.removeItem("revint_goal"); setEditingGoal(false); }} className="text-xs text-red-400 hover:text-red-600 px-2">Remove</button>}
+          {mrrGoal > 0 && <button onClick={async () => { setMrrGoal(0); setEditingGoal(false); const { data: { session } } = await supabase.auth.getSession(); fetch("/api/user/goal", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` }, body: JSON.stringify({ mrr_goal: 0 }) }).catch(() => {}); }} className="text-xs text-red-400 hover:text-red-600 px-2">Remove</button>}
           <button onClick={() => { setEditingGoal(false); setGoalInput(""); }} className="text-xs text-gray-400 px-2">✕</button>
         </div>
       )}
@@ -1012,18 +1102,18 @@ export default function Home() {
       <div className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
         <div className="flex items-center gap-1.5 mb-4">
           <p className="text-xs font-semibold text-gray-500">Revenue Breakdown</p>
-          <span className="text-xs text-gray-300">· {RANGE_LABEL[range]}</span>
-          <MetricTooltip text="Revenue in the selected period split by type: first payments from new customers, plan upgrades, and recurring renewals." />
+          <span className="text-xs text-gray-300">· Last complete month</span>
+          <MetricTooltip text="Last complete calendar month's MRR split by type — matches the MRR Movement chart. New = first payment, Expansion = upgrade, Renewals = retained MRR." />
         </div>
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: "New customers", value: breakdown.new,     color: "text-green-600" },
-            { label: "Renewals",      value: breakdown.renewal, color: "text-blue-500"  },
-            { label: "Upgrades",      value: breakdown.upgrade, color: "text-purple-600"},
+            { label: "New",       value: breakdown.new,     color: "text-green-600"  },
+            { label: "Renewals",  value: breakdown.renewal, color: "text-blue-500"   },
+            { label: "Expansion", value: breakdown.upgrade, color: "text-purple-600" },
           ].map((item) => (
             <div key={item.label}>
               <p className="text-xs text-gray-400 mb-1">{item.label}</p>
-              <p className={`text-2xl font-semibold ${item.color}`}>£{(item.value / 100).toFixed(2)}</p>
+              <p className={`text-2xl font-semibold ${item.color}`}>£{Math.round(item.value / 100).toLocaleString("en-GB")}</p>
             </div>
           ))}
         </div>
@@ -1127,61 +1217,67 @@ export default function Home() {
         </div>
       )}
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-        {/* MRR + Forecast */}
-        {mrrHistory.length > 0 && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-semibold text-gray-500">Revenue by Month</p>
-              {projectedMrr > 0 && (
-                <span className="text-[11px] text-gray-300 flex items-center gap-1.5">
-                  <svg width="20" height="4" viewBox="0 0 20 4"><line x1="0" y1="2" x2="20" y2="2" stroke="#a5b4fc" strokeWidth="2" strokeDasharray="4 2"/></svg>
-                  Forecast
-                </span>
-              )}
-            </div>
-            <ResponsiveContainer width="100%" height={160}>
-              <ComposedChart data={mrrHistory}>
-                <defs>
-                  <linearGradient id="mrrGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(v) => `£${v}`} width={45} />
-                <Tooltip content={<ChartTooltip />} />
-                {mrrGoal > 0 && (
-                  <ReferenceLine y={mrrGoal / 100} stroke="#6366f1" strokeDasharray="3 3" strokeOpacity={0.4}
-                    label={{ value: "Goal", position: "right", fontSize: 10, fill: "#6366f1" }} />
-                )}
-                <Area type="monotone" dataKey="mrr" stroke="#6366f1" strokeWidth={2} fill="url(#mrrGrad)" connectNulls={false} dot={false} />
-                <Line type="monotone" dataKey="forecast" stroke="#a5b4fc" strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        {/* Revenue per period */}
+      {/* MRR History — full width */}
+      {mrrHistory.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
-          <p className="text-xs font-semibold text-gray-500 mb-4">
-            {revenueChartTitle.split(" · ")[0]}
-            {revenueChartTitle.includes(" · ") && (
-              <span className="normal-case font-normal text-gray-300"> · {revenueChartTitle.split(" · ")[1]}</span>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-xs font-semibold text-gray-500">MRR History</p>
+              <div className="flex items-baseline gap-2 mt-1">
+                <p className="text-2xl font-bold text-gray-900">£{(mrr / 100).toLocaleString("en-GB", { maximumFractionDigits: 0 })}</p>
+                {mrrMoM !== null && (
+                  <span className={`text-xs font-semibold ${mrrMoM >= 0 ? "text-green-600" : "text-red-500"}`}>
+                    {mrrMoM >= 0 ? "+" : ""}{mrrMoM}% MoM
+                  </span>
+                )}
+              </div>
+            </div>
+            {projectedMrr > 0 && (
+              <span className="text-[11px] text-gray-300 flex items-center gap-1.5">
+                <svg width="20" height="4" viewBox="0 0 20 4"><line x1="0" y1="2" x2="20" y2="2" stroke="#a5b4fc" strokeWidth="2" strokeDasharray="4 2"/></svg>
+                Forecast
+              </span>
             )}
-          </p>
-          <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={revenueChart} barCategoryGap="35%">
-              <CartesianGrid vertical={false} stroke="#f4f4f5" />
-              <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval={range === "30d" ? 4 : 1} />
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <ComposedChart data={mrrHistory}>
+              <defs>
+                <linearGradient id="mrrGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(v) => `£${v}`} width={45} />
               <Tooltip content={<ChartTooltip />} />
-              <Bar dataKey="revenue" fill="#6366f1" radius={[3, 3, 0, 0]} />
-            </BarChart>
+              {mrrGoal > 0 && (
+                <ReferenceLine y={mrrGoal / 100} stroke="#6366f1" strokeDasharray="3 3" strokeOpacity={0.4}
+                  label={{ value: "Goal", position: "right", fontSize: 10, fill: "#6366f1" }} />
+              )}
+              <Area type="monotone" dataKey="mrr" stroke="#6366f1" strokeWidth={2} fill="url(#mrrGrad)" connectNulls={false} dot={false} />
+              <Line type="monotone" dataKey="forecast" stroke="#a5b4fc" strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls />
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
+      )}
+
+      {/* Revenue per period */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
+        <p className="text-xs font-semibold text-gray-500 mb-4">
+          {revenueChartTitle.split(" · ")[0]}
+          {revenueChartTitle.includes(" · ") && (
+            <span className="normal-case font-normal text-gray-300"> · {revenueChartTitle.split(" · ")[1]}</span>
+          )}
+        </p>
+        <ResponsiveContainer width="100%" height={160}>
+          <BarChart data={revenueChart} barCategoryGap="35%">
+            <CartesianGrid vertical={false} stroke="#f4f4f5" />
+            <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval={range === "30d" ? 4 : 1} />
+            <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(v) => `£${v}`} width={45} />
+            <Tooltip content={<ChartTooltip />} />
+            <Bar dataKey="revenue" fill="#6366f1" radius={[3, 3, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
 
       {/* Churn over Time */}

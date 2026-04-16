@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getActiveStripeKey } from "@/lib/get-stripe-key";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -17,21 +18,25 @@ export async function GET(request: NextRequest) {
   }
   const resend = new Resend(process.env.RESEND_API_KEY);
 
-  const { data: connections } = await supabaseAdmin
+  const { data: userRows } = await supabaseAdmin
     .from("stripe_connections")
-    .select("user_id, stripe_secret_key");
+    .select("user_id");
 
-  if (!connections?.length) return NextResponse.json({ sent: 0 });
+  const userIds = [...new Set((userRows ?? []).map((r: any) => r.user_id as string))];
+  if (!userIds.length) return NextResponse.json({ sent: 0 });
 
   let sent = 0;
   const errors: string[] = [];
 
-  for (const conn of connections) {
+  for (const userId of userIds) {
+    const conn = { user_id: userId };
     try {
-      const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(conn.user_id);
+      const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(userId);
       if (!user?.email) continue;
 
-      const stripe = new Stripe(conn.stripe_secret_key, { apiVersion: "2026-03-25.dahlia" });
+      const stripeKey = await getActiveStripeKey(userId);
+      if (!stripeKey) continue;
+      const stripe = new Stripe(stripeKey, { apiVersion: "2026-03-25.dahlia" });
       const now = Math.floor(Date.now() / 1000);
 
       const [pastDueSubs, unpaidSubs, incompleteSubs] = await Promise.all([

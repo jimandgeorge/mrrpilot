@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getActiveStripeKey } from "@/lib/get-stripe-key";
 
 export async function GET(
   request: NextRequest,
@@ -14,15 +15,10 @@ export async function GET(
   const { data: { user } } = await supabaseAdmin.auth.getUser(token);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: conn } = await supabaseAdmin
-    .from("stripe_connections")
-    .select("stripe_secret_key")
-    .eq("user_id", user.id)
-    .single();
+  const stripeKey = await getActiveStripeKey(user.id);
+  if (!stripeKey) return NextResponse.json({ error: "No Stripe connection" }, { status: 404 });
 
-  if (!conn?.stripe_secret_key) return NextResponse.json({ error: "No Stripe connection" }, { status: 404 });
-
-  const stripe = new Stripe(conn.stripe_secret_key, { apiVersion: "2026-03-25.dahlia" });
+  const stripe = new Stripe(stripeKey, { apiVersion: "2026-03-25.dahlia" });
 
   try {
     const [invoices, subscriptions, customer] = await Promise.all([

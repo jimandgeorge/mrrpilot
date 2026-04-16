@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export async function GET(request: NextRequest) {
@@ -22,6 +23,18 @@ export async function GET(request: NextRequest) {
       .select()
       .single();
     billing = created;
+
+    // Notify on new signup
+    if (process.env.RESEND_API_KEY) {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const emailResult = await resend.emails.send({
+        from: process.env.RESEND_FROM ?? "RevInt <alerts@revenueintelligence.co.uk>",
+        to: "brendan.mcintosh@outlook.com",
+        subject: `New trial signup: ${user.email}`,
+        html: `<p>${user.email} just started a trial on RevInt.</p>`,
+      });
+      console.log("[signup-email]", JSON.stringify(emailResult));
+    }
   }
 
   const now = Date.now();

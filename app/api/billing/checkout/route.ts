@@ -7,6 +7,12 @@ export async function POST(request: NextRequest) {
   const token = request.headers.get("Authorization")?.replace("Bearer ", "");
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const body = await request.json().catch(() => ({}));
+  const interval = body.interval === "yearly" ? "yearly" : "monthly";
+  const priceId = interval === "yearly"
+    ? (process.env.REVINT_STRIPE_YEARLY_PRICE_ID || process.env.REVINT_STRIPE_PRICE_ID!)
+    : process.env.REVINT_STRIPE_PRICE_ID!;
+
   const { data: { user } } = await supabaseAdmin.auth.getUser(token);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -35,7 +41,7 @@ export async function POST(request: NextRequest) {
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: "subscription",
-    line_items: [{ price: process.env.REVINT_STRIPE_PRICE_ID!, quantity: 1 }],
+    line_items: [{ price: priceId, quantity: 1 }],
     success_url: `${appUrl}/upgrade/success`,
     cancel_url: `${appUrl}/upgrade`,
     client_reference_id: user.id,

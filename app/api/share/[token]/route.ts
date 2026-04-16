@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getActiveStripeKey } from "@/lib/get-stripe-key";
 
 export async function GET(
   _request: NextRequest,
@@ -17,16 +18,10 @@ export async function GET(
 
   if (!shareRow) return NextResponse.json({ error: "Invalid or expired link" }, { status: 404 });
 
-  // Get their Stripe key
-  const { data: conn } = await supabaseAdmin
-    .from("stripe_connections")
-    .select("stripe_secret_key")
-    .eq("user_id", shareRow.user_id)
-    .single();
+  const stripeKey = await getActiveStripeKey(shareRow.user_id);
+  if (!stripeKey) return NextResponse.json({ error: "No Stripe connection" }, { status: 404 });
 
-  if (!conn?.stripe_secret_key) return NextResponse.json({ error: "No Stripe connection" }, { status: 404 });
-
-  const stripe = new Stripe(conn.stripe_secret_key, { apiVersion: "2026-03-25.dahlia" });
+  const stripe = new Stripe(stripeKey, { apiVersion: "2026-03-25.dahlia" });
 
   try {
     const [invoices, events] = await Promise.all([

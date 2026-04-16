@@ -3,7 +3,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { LayoutDashboard, Users, Settings, LogOut, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, Settings, LogOut, Menu, X, TrendingUp } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function ClientLayout({ children }: { children: ReactNode }) {
@@ -41,6 +41,7 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/customers", label: "Customers",  icon: Users           },
+    { href: "/forecast",  label: "Forecast",   icon: TrendingUp      },
     { href: "/settings",  label: "Settings",   icon: Settings        },
   ];
 
@@ -82,6 +83,12 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
             <p className="text-[11px] text-gray-400 truncate">{userEmail || "…"}</p>
           </div>
         </div>
+        <a
+          href="mailto:brendan.mcintosh@outlook.com"
+          className="w-full flex items-center gap-2 text-xs text-gray-400 hover:text-indigo-500 transition-colors py-1 mb-1"
+        >
+          Questions? Get in touch
+        </a>
         <button
           onClick={() => supabase.auth.signOut()}
           className="w-full flex items-center gap-2 text-xs text-gray-500 hover:text-gray-700 transition-colors py-1"

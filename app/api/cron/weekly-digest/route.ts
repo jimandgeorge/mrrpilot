@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getActiveStripeKey } from "@/lib/get-stripe-key";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -18,26 +19,31 @@ export async function GET(request: NextRequest) {
   }
   const resend = new Resend(process.env.RESEND_API_KEY);
 
-  // Get all users with a connected Stripe account
-  const { data: connections, error } = await supabaseAdmin
+  // Get all users with a connected Stripe account (deduplicated)
+  const { data: userRows, error } = await supabaseAdmin
     .from("stripe_connections")
-    .select("user_id, stripe_secret_key");
+    .select("user_id");
 
-  if (error || !connections?.length) {
+  if (error || !userRows?.length) {
     return NextResponse.json({ sent: 0 });
   }
+
+  const userIds = [...new Set(userRows.map((r: any) => r.user_id as string))];
 
   let sent = 0;
   const errors: string[] = [];
 
-  for (const conn of connections) {
+  for (const userId of userIds) {
     try {
       // Get user email from Supabase auth
-      const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(conn.user_id);
+      const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(userId);
       if (!user?.email) continue;
 
+      const stripeKey = await getActiveStripeKey(userId);
+      if (!stripeKey) continue;
+
       // Compute metrics from Stripe
-      const metrics = await computeMetrics(conn.stripe_secret_key);
+      const metrics = await computeMetrics(stripeKey);
       if (!metrics) continue;
 
       // Send digest
@@ -50,7 +56,7 @@ export async function GET(request: NextRequest) {
 
       sent++;
     } catch (err: any) {
-      errors.push(`${conn.user_id}: ${err.message}`);
+      errors.push(`${userId}: ${err.message}`);
     }
   }
 

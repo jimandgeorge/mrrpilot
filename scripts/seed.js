@@ -19,7 +19,7 @@ if (!key || !key.startsWith("sk_test_")) {
   process.exit(1);
 }
 
-const stripe = new Stripe(key, { apiVersion: "2026-03-25.dahlia" });
+const stripe = new Stripe(key);
 
 async function run() {
   console.log("Creating products...");
@@ -34,13 +34,10 @@ async function run() {
 
   console.log("Creating customers...");
 
-  // Helper — creates customer + payment method + subscription
+  // Helper — creates customer with test card + subscription
   async function subscribe(email, name, price, backdateTs) {
-    const customer = await stripe.customers.create({ email, name });
-    const pm = await stripe.paymentMethods.create({ type: "card", card: { token: "tok_visa" } });
-    await stripe.paymentMethods.attach(pm.id, { customer: customer.id });
-    await stripe.customers.update(customer.id, { invoice_settings: { default_payment_method: pm.id } });
-    const params = { customer: customer.id, items: [{ price: price.id }], default_payment_method: pm.id };
+    const customer = await stripe.customers.create({ email, name, source: "tok_visa" });
+    const params = { customer: customer.id, items: [{ price: price.id }] };
     if (backdateTs) params.backdate_start_date = backdateTs;
     const sub = await stripe.subscriptions.create(params);
     return { customer, sub };
