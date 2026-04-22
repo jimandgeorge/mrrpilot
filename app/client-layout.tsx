@@ -9,7 +9,7 @@ import { supabase } from "@/lib/supabase";
 export default function ClientLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const isPublic = pathname === "/login" || pathname === "/";
+  const isPublic = pathname === "/login" || pathname === "/" || pathname.startsWith("/revenue/");
   const [userEmail, setUserEmail] = useState("");
   const [userInitial, setUserInitial] = useState("?");
   const [sidebarOpen, setSidebarOpen] = useState(false);
