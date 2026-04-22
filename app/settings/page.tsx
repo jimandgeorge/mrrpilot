@@ -1,19 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Copy, Check, Unlink, Plus, Trash2, Star, Globe } from "lucide-react";
+import { Copy, Check, Plus, Trash2, Star, Globe } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type Connection = { id: string; name: string; connected_at: string; isActive: boolean };
 type PublicPage = { slug: string; company_name: string; tagline: string; hide_revenue: boolean; is_enabled: boolean } | null;
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "";
+
 export default function SettingsPage() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
-  const [shareToken, setShareToken] = useState<string | null>(null);
-  const [shareLoading, setShareLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
-
   // Public MRR page state
   const [publicPage, setPublicPage] = useState<PublicPage>(null);
   const [publicOpen, setPublicOpen] = useState(false);
@@ -51,13 +49,9 @@ export default function SettingsPage() {
     Promise.all([
       loadConnections().catch(() => {}),
       getToken()
-        .then((token) => fetch("/api/share", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()))
-        .catch(() => null),
-      getToken()
         .then((token) => fetch("/api/public-page", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()))
         .catch(() => null),
-    ]).then(([, shareRes, publicRes]) => {
-      if (shareRes?.token) setShareToken(shareRes.token);
+    ]).then(([, publicRes]) => {
       if (publicRes?.page) {
         const p = publicRes.page;
         setPublicPage(p);
@@ -118,15 +112,6 @@ export default function SettingsPage() {
     await loadConnections();
   }
 
-  async function handleGenerateShare() {
-    setShareLoading(true);
-    const token = await getToken();
-    const res = await fetch("/api/share", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
-    const data = await res.json();
-    if (data.token) setShareToken(data.token);
-    setShareLoading(false);
-  }
-
   async function handleSavePublicPage() {
     setPublicError("");
     setPublicSaving(true);
@@ -169,19 +154,6 @@ export default function SettingsPage() {
     navigator.clipboard.writeText(`${window.location.origin}/revenue/${publicPage.slug}`);
     setPublicCopied(true);
     setTimeout(() => setPublicCopied(false), 2000);
-  }
-
-  async function handleRevokeShare() {
-    const token = await getToken();
-    await fetch("/api/share", { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-    setShareToken(null);
-  }
-
-  function copyShareLink() {
-    if (!shareToken) return;
-    navigator.clipboard.writeText(`${window.location.origin}/share/${shareToken}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   }
 
   if (loading) {
@@ -334,7 +306,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2">
               <input
                 readOnly
-                value={`${typeof window !== "undefined" ? window.location.origin : ""}/revenue/${publicPage.slug}`}
+                value={`${APP_URL}/revenue/${publicPage.slug}`}
                 className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-500 bg-gray-50 focus:outline-none"
               />
               <button
@@ -424,10 +396,12 @@ export default function SettingsPage() {
                 <p className="text-xs text-gray-400 mt-0.5">Shows growth % instead of £ values — chart shape is still visible.</p>
               </div>
               <button
+                role="switch"
+                aria-checked={publicHideRevenue}
                 onClick={() => setPublicHideRevenue((v) => !v)}
-                className={`shrink-0 w-10 h-6 rounded-full transition-colors relative ml-4 ${publicHideRevenue ? "bg-indigo-600" : "bg-gray-200"}`}
+                className={`shrink-0 ml-4 relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${publicHideRevenue ? "bg-indigo-600" : "bg-gray-200"}`}
               >
-                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${publicHideRevenue ? "translate-x-5" : "translate-x-1"}`} />
+                <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${publicHideRevenue ? "translate-x-6" : "translate-x-1"}`} />
               </button>
             </div>
             <div className="flex gap-2 pt-1">
@@ -446,46 +420,6 @@ export default function SettingsPage() {
               </button>
             </div>
           </div>
-        )}
-      </div>
-
-      {/* Share Dashboard Card */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
-        <div>
-          <p className="text-sm font-semibold text-gray-800">Share Dashboard</p>
-          <p className="text-xs text-gray-400 mt-0.5">Generate a read-only link you can share with investors or co-founders. No login required.</p>
-        </div>
-
-        {shareToken ? (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <input
-                readOnly
-                value={`${typeof window !== "undefined" ? window.location.origin : ""}/share/${shareToken}`}
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-500 bg-gray-50 focus:outline-none"
-              />
-              <button
-                onClick={copyShareLink}
-                className="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-              >
-                {copied ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
-              </button>
-            </div>
-            <button
-              onClick={handleRevokeShare}
-              className="inline-flex items-center gap-1.5 text-xs text-red-400 hover:text-red-600 transition-colors"
-            >
-              <Unlink size={12} /> Revoke link
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={handleGenerateShare}
-            disabled={shareLoading}
-            className="w-full bg-gray-900 text-white text-sm font-medium py-2.5 rounded-lg hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-          >
-            {shareLoading ? "Generating…" : "Generate share link"}
-          </button>
         )}
       </div>
 

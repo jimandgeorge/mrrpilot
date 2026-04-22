@@ -1,59 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { HelpCircle, RefreshCw, Plug, AlertTriangle, TrendingUp, TrendingDown, UserPlus, UserMinus, AlertCircle, Lightbulb, Lock, type LucideIcon } from "lucide-react";
+import { RefreshCw, Plug, AlertTriangle, TrendingUp, TrendingDown, UserPlus, UserMinus, AlertCircle, Lightbulb, Lock, type LucideIcon } from "lucide-react";
 import Link from "next/link";
-
-function useCountUp(target: number, duration = 900) {
-  const [val, setVal] = useState(0);
-  useEffect(() => {
-    if (target === 0) { setVal(0); return; }
-    let rafId: number;
-    let startTime: number | null = null;
-    const step = (ts: number) => {
-      if (!startTime) startTime = ts;
-      const progress = Math.min((ts - startTime) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setVal(Math.round(target * eased));
-      if (progress < 1) rafId = requestAnimationFrame(step);
-    };
-    rafId = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(rafId);
-  }, [target, duration]);
-  return val;
-}
 import { supabase } from "@/lib/supabase";
-import {
-  ComposedChart, AreaChart, Area, Line, BarChart, Bar,
-  XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine,
-} from "recharts";
-
-function ChartTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-gray-900 text-white text-xs px-3 py-2 rounded-lg shadow-xl">
-      {label && <p className="text-gray-400 mb-1">{label}</p>}
-      {payload.map((p: any, i: number) => (
-        p.value != null && (
-          <p key={i} style={{ color: p.stroke || p.fill || "#fff" }}>
-            {p.name === "mrr" ? "Revenue" : p.name === "forecast" ? "Forecast" : p.name === "revenue" ? "Revenue" : p.name === "churns" ? "Cancellations" : p.name === "new" ? "New MRR" : p.name === "expansion" ? "Expansion" : p.name === "contraction" ? "Contraction" : p.name === "churn" ? "Churned" : p.name === "net" ? "Net New" : p.name}
-            {": "}£{Number(p.value).toLocaleString("en-GB")}
-          </p>
-        )
-      ))}
-    </div>
-  );
-}
-
-function MetricTooltip({ text }: { text: string }) {
-  return (
-    <span className="relative group ml-1 inline-block">
-      <HelpCircle size={13} className="cursor-default text-gray-300 hover:text-gray-500" />
-      <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-lg bg-gray-900 text-white text-xs px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 text-center shadow-lg">
-        {text}
-      </span>
-    </span>
-  );
-}
 
 type EventItem = {
   amount: number;
@@ -64,7 +13,6 @@ type EventItem = {
 };
 
 type Range = "7d" | "30d" | "90d" | "all";
-type MrrPoint = { month: string; mrr?: number; forecast?: number };
 
 const RANGE_DAYS: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90 };
 const RANGE_LABEL: Record<Range, string> = {
@@ -102,16 +50,10 @@ export default function Home() {
   const [newCustomerCount, setNewCustomerCount] = useState(0);
   const [churnTrend, setChurnTrend] = useState<{ thisPeriod: number; lastPeriod: number; reasons: { label: string; count: number }[] }>({ thisPeriod: 0, lastPeriod: 0, reasons: [] });
   const [breakdown, setBreakdown] = useState({ new: 0, upgrade: 0, renewal: 0 });
-  const [mrrHistory, setMrrHistory] = useState<MrrPoint[]>([]);
-  const [revenueChart, setRevenueChart] = useState<{ label: string; revenue: number }[]>([]);
-  const [revenueChartTitle, setRevenueChartTitle] = useState("Revenue per Day");
-  const [churnHistory, setChurnHistory] = useState<{ month: string; churns: number }[]>([]);
   const [arpu, setArpu] = useState(0);
   const [nrr, setNrr] = useState<number | null>(null);
-  const [ltv, setLtv] = useState<number | null>(null);
   const [quickRatio, setQuickRatio] = useState<number | null>(null);
   const [churnRisk, setChurnRisk] = useState<{ id: string; email: string; daysPastDue: number; mrr: number; planName?: string }[]>([]);
-  const [mrrWaterfall, setMrrWaterfall] = useState<{ month: string; new: number; expansion: number; contraction: number; churn: number; net: number }[]>([]);
   const [planRevenue, setPlanRevenue] = useState<{ name: string; mrr: number; customers: number; pct: number }[]>([]);
   const [pastDue, setPastDue] = useState<{ id: string; email: string; amount: number; daysOverdue: number; hostedUrl: string | null }[]>([]);
   const [userEmail, setUserEmail] = useState("");
@@ -123,6 +65,8 @@ export default function Home() {
 
   const [emailDrafts, setEmailDrafts] = useState<Record<string, { content: string; loading: boolean; open: boolean }>>({});
   const [mrrMoM, setMrrMoM] = useState<number | null>(null);
+  const [prose, setProse] = useState<{ momentum: string | null; mix: string | null; churn: string | null }>({ momentum: null, mix: null, churn: null });
+  const [proseLoading, setProseLoading] = useState(false);
 
   // Load goal from API (falls back to localStorage for existing users)
   useEffect(() => {
@@ -227,6 +171,25 @@ export default function Home() {
       // Commentary is non-critical — fail silently
     }
     setCommentaryLoading(false);
+  }
+
+  async function fetchProse(metrics: object) {
+    setProseLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/analytics-prose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
+        body: JSON.stringify(metrics),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProse({ momentum: data.momentum ?? null, mix: data.mix ?? null, churn: data.churn ?? null });
+      }
+    } catch {
+      // non-critical
+    }
+    setProseLoading(false);
   }
 
   async function sendChat(e: React.FormEvent) {
@@ -361,12 +324,6 @@ export default function Home() {
     // ARPU
     const activeCustomerCount = Object.keys(mrrByCustomer).length;
     const calcArpu = activeCustomerCount > 0 ? Math.round(totalMRR / activeCustomerCount) : 0;
-
-    // LTV = ARPU / monthly churn rate (churns last 30 days / active customers)
-    const nowForLtv = Math.floor(Date.now() / 1000);
-    const recentChurnCount = churnEventsData.filter((e: any) => (nowForLtv - e.cancelledAt) < 30 * 86400).length;
-    const monthlyChurnRate = activeCustomerCount > 0 ? recentChurnCount / activeCustomerCount : 0;
-    const calcLtv = monthlyChurnRate > 0 ? Math.round(calcArpu / monthlyChurnRate) : null;
 
     // Revenue by plan — sourced from subscription data
     const planMap: Record<string, { name: string; mrr: number; customers: number }> = {};
@@ -555,66 +512,6 @@ export default function Home() {
     const growth = totalMRR > 0 ? Math.min((periodRevenue / totalMRR) * 100, 100) : 0;
     const newCustomers = Object.keys(countedNew).length;
 
-    // Revenue chart (range-aware)
-    let chartData: { label: string; revenue: number }[] = [];
-    let chartTitle = "Revenue per Day";
-    if (selectedRange === "7d") {
-      const dailyMap: Record<string, number> = {};
-      for (let i = 13; i >= 0; i--) {
-        const d = new Date(); d.setDate(d.getDate() - i);
-        dailyMap[d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })] = 0;
-      }
-      invoices.forEach((inv: any) => {
-        if (!inv.amount_paid) return;
-        const key = new Date(inv.created * 1000).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
-        if (key in dailyMap) dailyMap[key] += inv.amount_paid;
-      });
-      chartData = Object.entries(dailyMap).map(([label, revenue]) => ({ label, revenue: Math.round(revenue / 100) }));
-      chartTitle = "Revenue per Day · last 14 days";
-    } else if (selectedRange === "30d") {
-      const dailyMap: Record<string, number> = {};
-      for (let i = 29; i >= 0; i--) {
-        const d = new Date(); d.setDate(d.getDate() - i);
-        dailyMap[d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })] = 0;
-      }
-      invoices.forEach((inv: any) => {
-        if (!inv.amount_paid) return;
-        const key = new Date(inv.created * 1000).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
-        if (key in dailyMap) dailyMap[key] += inv.amount_paid;
-      });
-      chartData = Object.entries(dailyMap).map(([label, revenue]) => ({ label, revenue: Math.round(revenue / 100) }));
-      chartTitle = "Revenue per Day · last 30 days";
-    } else if (selectedRange === "90d") {
-      const buckets: { label: string; start: number; revenue: number }[] = [];
-      for (let i = 12; i >= 0; i--) {
-        const start = new Date(); start.setDate(start.getDate() - (i + 1) * 7);
-        const end = new Date(); end.setDate(end.getDate() - i * 7);
-        const bucket = { label: start.toLocaleDateString("en-GB", { day: "numeric", month: "short" }), start: start.getTime(), revenue: 0 };
-        invoices.forEach((inv: any) => {
-          if (!inv.amount_paid) return;
-          const ts = inv.created * 1000;
-          if (ts >= start.getTime() && ts < end.getTime()) bucket.revenue += inv.amount_paid;
-        });
-        buckets.push(bucket);
-      }
-      chartData = buckets.map(({ label, revenue }) => ({ label, revenue: Math.round(revenue / 100) }));
-      chartTitle = "Revenue by Week · last 90 days";
-    } else {
-      const byMonth: Record<string, number> = {};
-      invoices.forEach((inv: any) => {
-        if (!inv.amount_paid) return;
-        const d = new Date(inv.created * 1000);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        byMonth[key] = (byMonth[key] || 0) + inv.amount_paid;
-      });
-      chartData = Object.entries(byMonth).sort(([a], [b]) => a.localeCompare(b))
-        .map(([key, revenue]) => ({
-          label: new Date(key + "-01").toLocaleDateString("en-GB", { month: "short", year: "2-digit" }),
-          revenue: Math.round(revenue / 100),
-        }));
-      chartTitle = "Revenue by Month · all time";
-    }
-
     // Insights
     type Insight = { icon: LucideIcon; text: string; detail?: string; type: "positive" | "warning" | "neutral" };
     const insightList: Insight[] = [];
@@ -634,7 +531,7 @@ export default function Home() {
       insightList.push({ icon: TrendingUp, text: `Revenue up ${growth.toFixed(0)}% vs MRR ${pLabel}`, detail: "Strong growth. Double down on whatever acquisition channel is working.", type: "positive" });
     }
 
-    // MRR history (monthly, always) — used for the main trend chart
+    // MRR history (monthly) — used for MoM and forecast
     const byMonth: Record<string, number> = {};
     invoices.forEach((inv: any) => {
       if (!inv.amount_paid) return;
@@ -648,7 +545,7 @@ export default function Home() {
       else if (interval === "week") monthly = Math.round((monthly * 52) / (12 * intervalCount));
       byMonth[key] = (byMonth[key] || 0) + monthly;
     });
-    const history: MrrPoint[] = Object.entries(byMonth)
+    const history = Object.entries(byMonth)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([key, val]) => ({
         month: new Date(key + "-01").toLocaleDateString("en-GB", { month: "short", year: "2-digit" }),
@@ -680,29 +577,10 @@ export default function Home() {
       const projected3mo = Math.max(0, Math.round(intercept + slope * (n - 1 + 3)));
       forecastedMrr = projected3mo * 100; // convert to pence for state
 
-      // Attach forecast to last actual point (smooth join) + 3 future months
-      const historyWithForecast: MrrPoint[] = history.map((m, i) => ({
-        ...m,
-        forecast: i === history.length - 1 ? m.mrr : undefined,
-      }));
-
-      // Compute future month labels
-      const lastDate = new Date();
-      for (let offset = 1; offset <= 3; offset++) {
-        const d = new Date(lastDate);
-        d.setMonth(d.getMonth() + offset);
-        const forecastVal = Math.max(0, Math.round(intercept + slope * (n - 1 + offset)));
-        historyWithForecast.push({
-          month: d.toLocaleDateString("en-GB", { month: "short", year: "2-digit" }),
-          mrr: undefined,
-          forecast: forecastVal,
-        });
-      }
-      setMrrHistory(historyWithForecast);
+      setProjectedMrr(forecastedMrr);
     } else {
-      setMrrHistory(history);
+      setProjectedMrr(forecastedMrr);
     }
-    setProjectedMrr(forecastedMrr);
 
     // Churn trend
     const churnsThisPeriod = churnEventsData.filter((e) => new Date(e.cancelledAt * 1000) >= periodStart);
@@ -724,24 +602,11 @@ export default function Home() {
       else if (trendDiff < 0) insightList.push({ icon: TrendingDown, text: `Churn down ${churnsLastPeriod.length} → ${churnsThisPeriod.length} vs previous period`, detail: "Retention is improving. Identify what changed and reinforce it.", type: "positive" });
     }
 
-    // Churn history (monthly)
-    const churnByMonth: Record<string, number> = {};
-    churnEventsData.forEach((e: any) => {
-      const d = new Date(e.cancelledAt * 1000);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      churnByMonth[key] = (churnByMonth[key] || 0) + 1;
-    });
-    const churnHist = Object.entries(churnByMonth).sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, count]) => ({ month: new Date(key + "-01").toLocaleDateString("en-GB", { month: "short", year: "2-digit" }), churns: count }));
-
     setMrr(totalMRR);
     setMrrMoM(calcMrrMoM);
     setArpu(calcArpu);
     setNrr(calcNrr);
-    setLtv(calcLtv);
     setQuickRatio(calcQuickRatio);
-    // churnRisk is set directly from atRiskSubscriptions in loadData
-    setMrrWaterfall(calcWaterfall);
     setPlanRevenue(calcPlanRevenue);
     setNewCustomerCount(newCustomers);
     setEvents(parsedEvents);
@@ -752,13 +617,9 @@ export default function Home() {
     setChurnRevenue(churnAmount);
     setChurnTrend({ thisPeriod: churnsThisPeriod.length, lastPeriod: churnsLastPeriod.length, reasons });
     setBreakdown({ new: newRevenue, upgrade: upgradeRevenue, renewal: renewalRevenue });
-    setRevenueChart(chartData);
-    setRevenueChartTitle(chartTitle);
-    setChurnHistory(churnHist);
     setLoading(false);
 
-    // Fire commentary fetch — non-blocking
-    fetchCommentary({
+    const sharedMetrics = {
       mrr: totalMRR,
       projectedMrr: forecastedMrr,
       periodChange: periodRevenue,
@@ -771,13 +632,20 @@ export default function Home() {
       breakdown: { new: newRevenue, renewal: renewalRevenue, upgrade: upgradeRevenue },
       churnTrend: { thisPeriod: churnsThisPeriod.length, lastPeriod: churnsLastPeriod.length },
       churnRisk: churnRisk.map(c => ({ email: c.email, daysPastDue: c.daysPastDue, mrr: c.mrr })),
+    };
+
+    // Fire non-blocking AI fetches
+    fetchCommentary(sharedMetrics);
+    fetchProse({
+      ...sharedMetrics,
+      mrrMoM: calcMrrMoM,
+      nrr: calcNrr,
+      quickRatio: calcQuickRatio,
+      arpu: calcArpu,
+      mrrWaterfall: calcWaterfall,
+      planRevenue: calcPlanRevenue,
     });
   }
-
-  // Animated counters — after all useState declarations, before any early returns
-  const animatedMrr = useCountUp(Math.round(mrr / 100));
-  const animatedGrowth = useCountUp(Math.round(Math.abs(growthRate) * 10));
-  const animatedChurn = useCountUp(Math.round(Math.abs(churnRate) * 10));
 
   if (notConnected) {
     return (
@@ -1091,279 +959,25 @@ export default function Home() {
         <button onClick={() => setEditingGoal(true)} className="text-xs text-gray-300 hover:text-indigo-500 transition-colors pl-1">+ Set MRR goal</button>
       )}
 
-      {/* Divider */}
-      <div className="flex items-center gap-4 pt-2">
-        <div className="flex-1 h-px bg-gray-100" />
-        <p className="text-[11px] font-medium text-gray-300 tracking-widest uppercase">The numbers</p>
-        <div className="flex-1 h-px bg-gray-100" />
-      </div>
-
-      {/* Revenue Breakdown */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
-        <div className="flex items-center gap-1.5 mb-4">
-          <p className="text-xs font-semibold text-gray-500">Revenue Breakdown</p>
-          <span className="text-xs text-gray-300">· Last complete month</span>
-          <MetricTooltip text="Last complete calendar month's MRR split by type — matches the MRR Movement chart. New = first payment, Expansion = upgrade, Renewals = retained MRR." />
-        </div>
-        <div className="grid grid-cols-3 gap-4">
-          {[
-            { label: "New",       value: breakdown.new,     color: "text-green-600"  },
-            { label: "Renewals",  value: breakdown.renewal, color: "text-blue-500"   },
-            { label: "Expansion", value: breakdown.upgrade, color: "text-purple-600" },
-          ].map((item) => (
-            <div key={item.label}>
-              <p className="text-xs text-gray-400 mb-1">{item.label}</p>
-              <p className={`text-2xl font-semibold ${item.color}`}>£{Math.round(item.value / 100).toLocaleString("en-GB")}</p>
+      {/* Prose sections — replace all charts */}
+      {[
+        { key: "momentum" as const, label: "Revenue momentum" },
+        { key: "mix"      as const, label: "Revenue mix"      },
+        { key: "churn"    as const, label: "Churn"            },
+      ].map(({ key, label }) => (
+        <div key={key} className="bg-white rounded-2xl border border-gray-200 p-7">
+          <p className="text-[11px] font-semibold text-gray-400 tracking-widest uppercase mb-4">{label}</p>
+          {proseLoading || !prose[key] ? (
+            <div className="space-y-3 animate-pulse">
+              <div className="h-5 bg-gray-100 rounded-lg w-full" />
+              <div className="h-5 bg-gray-100 rounded-lg w-10/12" />
+              <div className="h-5 bg-gray-100 rounded-lg w-8/12" />
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Revenue by Plan */}
-      {planRevenue.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center gap-1.5 mb-5">
-            <p className="text-xs font-semibold text-gray-500">Revenue by Plan</p>
-            <MetricTooltip text="MRR split by Stripe price. Shows which plans are driving your revenue." />
-          </div>
-          <div className="space-y-4">
-            {planRevenue.map((plan, i) => {
-              const barColors = ["bg-indigo-500", "bg-purple-500", "bg-blue-400", "bg-cyan-400", "bg-teal-400"];
-              const color = barColors[i % barColors.length];
-              return (
-                <div key={i}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-sm inline-block ${color}`} />
-                      <p className="text-sm font-medium text-gray-700">{plan.name}</p>
-                      <span className="text-xs text-gray-400">{plan.customers} customer{plan.customers !== 1 ? "s" : ""}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <p className="text-sm font-semibold text-gray-700 tabular-nums">£{(plan.mrr / 100).toLocaleString("en-GB", { maximumFractionDigits: 0 })}<span className="text-xs text-gray-400 font-normal">/mo</span></p>
-                      <p className="text-xs text-gray-400 w-8 text-right">{plan.pct}%</p>
-                    </div>
-                  </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${color} transition-all duration-500`} style={{ width: `${plan.pct}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* MRR Waterfall */}
-      {mrrWaterfall.length >= 2 && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-1.5">
-              <p className="text-xs font-semibold text-gray-500">MRR Movement</p>
-              <MetricTooltip text="Month-over-month breakdown of MRR changes: new customers, expansions, contractions, and churn." />
-            </div>
-            <div className="flex items-center gap-3 text-[11px] text-gray-400">
-              {[
-                { color: "bg-green-500",  label: "New"         },
-                { color: "bg-indigo-500", label: "Expansion"   },
-                { color: "bg-orange-400", label: "Contraction" },
-                { color: "bg-red-400",    label: "Churn"       },
-              ].map(({ color, label }) => (
-                <span key={label} className="flex items-center gap-1">
-                  <span className={`w-2 h-2 rounded-sm inline-block ${color}`} />{label}
-                </span>
-              ))}
-            </div>
-          </div>
-          {/* Last month summary */}
-          {(() => {
-            const last = mrrWaterfall[mrrWaterfall.length - 1];
-            const items = [
-              { label: "New",         value: last.new,         color: "text-green-600"  },
-              { label: "Expansion",   value: last.expansion,   color: "text-indigo-600" },
-              { label: "Contraction", value: last.contraction, color: "text-orange-500" },
-              { label: "Churn",       value: last.churn,       color: "text-red-500"    },
-            ];
-            return (
-              <div className="flex gap-6 mt-3 mb-4 pb-4 border-b border-gray-100">
-                {items.map((item) => (
-                  <div key={item.label}>
-                    <p className="text-[11px] text-gray-400">{item.label}</p>
-                    <p className={`text-sm font-semibold tabular-nums ${item.color}`}>
-                      {item.value >= 0 ? "+" : ""}£{Math.abs(item.value).toLocaleString("en-GB")}
-                    </p>
-                  </div>
-                ))}
-                <div className="ml-auto text-right">
-                  <p className="text-[11px] text-gray-400">Net new</p>
-                  <p className={`text-sm font-semibold tabular-nums ${last.net >= 0 ? "text-green-600" : "text-red-500"}`}>
-                    {last.net >= 0 ? "+" : ""}£{last.net.toLocaleString("en-GB")}
-                  </p>
-                </div>
-              </div>
-            );
-          })()}
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={mrrWaterfall} barCategoryGap="30%">
-              <CartesianGrid vertical={false} stroke="#f4f4f5" />
-              <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(v) => `£${v}`} width={45} />
-              <Tooltip content={<ChartTooltip />} />
-              <Bar dataKey="new"         stackId="a" fill="#22c55e" radius={[0,0,0,0]} />
-              <Bar dataKey="expansion"   stackId="a" fill="#6366f1" radius={[3,3,0,0]} />
-              <Bar dataKey="contraction" stackId="b" fill="#fb923c" radius={[0,0,0,0]} />
-              <Bar dataKey="churn"       stackId="b" fill="#f87171" radius={[0,0,3,3]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* MRR History — full width */}
-      {mrrHistory.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-xs font-semibold text-gray-500">MRR History</p>
-              <div className="flex items-baseline gap-2 mt-1">
-                <p className="text-2xl font-bold text-gray-900">£{(mrr / 100).toLocaleString("en-GB", { maximumFractionDigits: 0 })}</p>
-                {mrrMoM !== null && (
-                  <span className={`text-xs font-semibold ${mrrMoM >= 0 ? "text-green-600" : "text-red-500"}`}>
-                    {mrrMoM >= 0 ? "+" : ""}{mrrMoM}% MoM
-                  </span>
-                )}
-              </div>
-            </div>
-            {projectedMrr > 0 && (
-              <span className="text-[11px] text-gray-300 flex items-center gap-1.5">
-                <svg width="20" height="4" viewBox="0 0 20 4"><line x1="0" y1="2" x2="20" y2="2" stroke="#a5b4fc" strokeWidth="2" strokeDasharray="4 2"/></svg>
-                Forecast
-              </span>
-            )}
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <ComposedChart data={mrrHistory}>
-              <defs>
-                <linearGradient id="mrrGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(v) => `£${v}`} width={45} />
-              <Tooltip content={<ChartTooltip />} />
-              {mrrGoal > 0 && (
-                <ReferenceLine y={mrrGoal / 100} stroke="#6366f1" strokeDasharray="3 3" strokeOpacity={0.4}
-                  label={{ value: "Goal", position: "right", fontSize: 10, fill: "#6366f1" }} />
-              )}
-              <Area type="monotone" dataKey="mrr" stroke="#6366f1" strokeWidth={2} fill="url(#mrrGrad)" connectNulls={false} dot={false} />
-              <Line type="monotone" dataKey="forecast" stroke="#a5b4fc" strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* Revenue per period */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
-        <p className="text-xs font-semibold text-gray-500 mb-4">
-          {revenueChartTitle.split(" · ")[0]}
-          {revenueChartTitle.includes(" · ") && (
-            <span className="normal-case font-normal text-gray-300"> · {revenueChartTitle.split(" · ")[1]}</span>
-          )}
-        </p>
-        <ResponsiveContainer width="100%" height={160}>
-          <BarChart data={revenueChart} barCategoryGap="35%">
-            <CartesianGrid vertical={false} stroke="#f4f4f5" />
-            <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval={range === "30d" ? 4 : 1} />
-            <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(v) => `£${v}`} width={45} />
-            <Tooltip content={<ChartTooltip />} />
-            <Bar dataKey="revenue" fill="#6366f1" radius={[3, 3, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Churn over Time */}
-      {churnHistory.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
-          <p className="text-xs font-semibold text-gray-500 mb-4">Churn over Time</p>
-          <ResponsiveContainer width="100%" height={160}>
-            <AreaChart data={churnHistory}>
-              <defs>
-                <linearGradient id="churnGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.12} />
-                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid vertical={false} stroke="#fef2f2" />
-              <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} width={30} />
-              <Tooltip content={<ChartTooltip />} />
-              <Area type="monotone" dataKey="churns" stroke="#ef4444" strokeWidth={2} fill="url(#churnGrad)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* Churn Intelligence */}
-      {(churnRevenue > 0 || churnTrend.thisPeriod > 0 || churnTrend.lastPeriod > 0) && (
-        <div className="bg-white rounded-2xl border border-red-100 p-6">
-          <p className="text-xs font-semibold text-red-400 mb-4">Churn Intelligence</p>
-          <div className="grid grid-cols-3 gap-6 mb-4">
-            <div>
-              <p className="text-xs text-gray-400 mb-1">Lost {RANGE_LABEL[range].toLowerCase()}</p>
-              <p className="text-2xl font-bold text-red-500">£{(churnRevenue / 100).toFixed(2)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400 mb-1">Cancellations</p>
-              <p className="text-2xl font-bold text-gray-700">{churnTrend.thisPeriod}</p>
-            </div>
-            {range !== "all" && (
-              <div>
-                <p className="text-xs text-gray-400 mb-1">vs Previous period</p>
-                <p className={`text-2xl font-bold ${churnTrend.thisPeriod > churnTrend.lastPeriod ? "text-red-500" : churnTrend.thisPeriod < churnTrend.lastPeriod ? "text-green-600" : "text-gray-400"}`}>
-                  {churnTrend.thisPeriod > churnTrend.lastPeriod ? "▲" : churnTrend.thisPeriod < churnTrend.lastPeriod ? "▼" : "—"} {churnTrend.lastPeriod}→{churnTrend.thisPeriod}
-                </p>
-              </div>
-            )}
-          </div>
-          {churnTrend.reasons.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
-              {churnTrend.reasons.map((r) => (
-                <span key={r.label} className="text-xs bg-red-50 text-red-600 border border-red-100 px-3 py-1 rounded-full">
-                  {r.label} · {r.count}
-                </span>
-              ))}
-            </div>
+          ) : (
+            <p className="text-[17px] leading-relaxed text-gray-800">{prose[key]}</p>
           )}
         </div>
-      )}
-
-      {/* Insights */}
-      {insights.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200">
-          <div className="px-6 py-4 border-b border-gray-100">
-            <p className="text-xs font-semibold text-gray-500">Insights</p>
-          </div>
-          <ul>
-            {insights.map((insight, i) => {
-              const Icon = insight.icon;
-              const iconClass =
-                insight.type === "positive" ? "text-green-500 bg-green-50"
-                : insight.type === "warning" ? "text-amber-500 bg-amber-50"
-                : "text-gray-400 bg-gray-100";
-              return (
-                <li key={i} className="flex items-start gap-4 px-6 py-4 border-b border-gray-50 last:border-0">
-                  <div className={`mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${iconClass}`}>
-                    <Icon size={14} strokeWidth={2} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">{insight.text}</p>
-                    {insight.detail && <p className="text-xs text-gray-400 mt-0.5">{insight.detail}</p>}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
+      ))}
 
       {/* Activity Feed */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
