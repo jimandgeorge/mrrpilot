@@ -3,7 +3,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { LayoutDashboard, Users, Settings, LogOut, Menu, X, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Users, Settings, LogOut, Menu, X, TrendingUp, Repeat2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function ClientLayout({ children }: { children: ReactNode }) {
@@ -42,6 +42,7 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/customers", label: "Customers",  icon: Users           },
     { href: "/forecast",  label: "Forecast",   icon: TrendingUp      },
+    { href: "/retention", label: "Retention",  icon: Repeat2         },
     { href: "/settings",  label: "Settings",   icon: Settings        },
   ];
 
