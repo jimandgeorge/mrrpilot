@@ -967,14 +967,16 @@ export default function Home() {
       ].map(({ key, label }) => (
         <div key={key} className="bg-white rounded-2xl border border-gray-200 p-7">
           <p className="text-[11px] font-semibold text-gray-400 tracking-widest uppercase mb-4">{label}</p>
-          {proseLoading || !prose[key] ? (
+          {proseLoading ? (
             <div className="space-y-3 animate-pulse">
               <div className="h-5 bg-gray-100 rounded-lg w-full" />
               <div className="h-5 bg-gray-100 rounded-lg w-10/12" />
               <div className="h-5 bg-gray-100 rounded-lg w-8/12" />
             </div>
-          ) : (
+          ) : prose[key] ? (
             <p className="text-[17px] leading-relaxed text-gray-800">{prose[key]}</p>
+          ) : (
+            <p className="text-sm text-gray-300">Analysis unavailable.</p>
           )}
         </div>
       ))}
