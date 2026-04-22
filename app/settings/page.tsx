@@ -24,6 +24,15 @@ export default function SettingsPage() {
   const [publicError, setPublicError] = useState("");
   const [publicCopied, setPublicCopied] = useState(false);
 
+  // Account
+  const [accountEmail, setAccountEmail] = useState("");
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pwNew, setPwNew] = useState("");
+  const [pwConfirm, setPwConfirm] = useState("");
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwError, setPwError] = useState("");
+  const [pwSuccess, setPwSuccess] = useState("");
+
   // Slack
   const [slack, setSlack] = useState<SlackIntegration>(null);
   const [slackInput, setSlackInput] = useState("");
@@ -54,6 +63,10 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email) setAccountEmail(session.user.email);
+    });
+
     Promise.all([
       loadConnections().catch(() => {}),
       getToken()
@@ -161,6 +174,24 @@ export default function SettingsPage() {
     setPublicOpen(false);
   }
 
+  async function handleChangePassword() {
+    setPwError("");
+    setPwSuccess("");
+    if (pwNew.length < 8) { setPwError("Password must be at least 8 characters."); return; }
+    if (pwNew !== pwConfirm) { setPwError("Passwords don't match."); return; }
+    setPwSaving(true);
+    const { error } = await supabase.auth.updateUser({ password: pwNew });
+    setPwSaving(false);
+    if (error) {
+      setPwError(error.message);
+    } else {
+      setPwSuccess("Password updated.");
+      setPwNew("");
+      setPwConfirm("");
+      setPwOpen(false);
+    }
+  }
+
   async function handleSaveSlack() {
     setSlackError("");
     if (!slackInput.startsWith("https://hooks.slack.com/")) {
@@ -214,7 +245,70 @@ export default function SettingsPage() {
 
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-sm text-gray-500 mt-1">Manage your Stripe connections</p>
+      </div>
+
+      {/* Account Card */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
+        <p className="text-sm font-semibold text-gray-800">Account</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-400 mb-0.5">Email</p>
+            <p className="text-sm text-gray-700">{accountEmail}</p>
+          </div>
+        </div>
+        {pwSuccess && (
+          <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-4 py-2">{pwSuccess}</p>
+        )}
+        {!pwOpen ? (
+          <button
+            onClick={() => { setPwOpen(true); setPwSuccess(""); }}
+            className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors"
+          >
+            Change password
+          </button>
+        ) : (
+          <div className="border border-gray-100 rounded-xl p-4 space-y-3 bg-gray-50">
+            {pwError && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{pwError}</p>
+            )}
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1.5">New password</label>
+              <input
+                type="password"
+                value={pwNew}
+                onChange={(e) => setPwNew(e.target.value)}
+                autoComplete="new-password"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1.5">Confirm new password</label>
+              <input
+                type="password"
+                value={pwConfirm}
+                onChange={(e) => setPwConfirm(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleChangePassword()}
+                autoComplete="new-password"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleChangePassword}
+                disabled={pwSaving || !pwNew || !pwConfirm}
+                className="flex-1 bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              >
+                {pwSaving ? "Saving…" : "Update password"}
+              </button>
+              <button
+                onClick={() => { setPwOpen(false); setPwError(""); setPwNew(""); setPwConfirm(""); }}
+                className="px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Stripe Accounts Card */}
