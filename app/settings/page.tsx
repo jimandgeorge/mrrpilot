@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Copy, Check, Plus, Trash2, Star, Globe } from "lucide-react";
+import { Copy, Check, Plus, Trash2, Star, Globe, Bell } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type Connection = { id: string; name: string; connected_at: string; isActive: boolean };
 type PublicPage = { slug: string; company_name: string; tagline: string; hide_revenue: boolean; is_enabled: boolean } | null;
+type SlackIntegration = { slack_webhook_url: string; stripe_webhook_id: string | null } | null;
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "";
 
@@ -22,6 +23,13 @@ export default function SettingsPage() {
   const [publicSaving, setPublicSaving] = useState(false);
   const [publicError, setPublicError] = useState("");
   const [publicCopied, setPublicCopied] = useState(false);
+
+  // Slack
+  const [slack, setSlack] = useState<SlackIntegration>(null);
+  const [slackInput, setSlackInput] = useState("");
+  const [slackSaving, setSlackSaving] = useState(false);
+  const [slackError, setSlackError] = useState("");
+  const [slackOpen, setSlackOpen] = useState(false);
 
   // Add form
   const [addOpen, setAddOpen] = useState(false);
@@ -51,7 +59,10 @@ export default function SettingsPage() {
       getToken()
         .then((token) => fetch("/api/public-page", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()))
         .catch(() => null),
-    ]).then(([, publicRes]) => {
+      getToken()
+        .then((token) => fetch("/api/integrations/slack", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()))
+        .catch(() => null),
+    ]).then(([, publicRes, slackRes]) => {
       if (publicRes?.page) {
         const p = publicRes.page;
         setPublicPage(p);
@@ -60,6 +71,7 @@ export default function SettingsPage() {
         setPublicTagline(p.tagline);
         setPublicHideRevenue(p.hide_revenue);
       }
+      if (slackRes?.integration) setSlack(slackRes.integration);
       setLoading(false);
     });
   }, []);
@@ -147,6 +159,38 @@ export default function SettingsPage() {
     setPublicTagline("");
     setPublicHideRevenue(false);
     setPublicOpen(false);
+  }
+
+  async function handleSaveSlack() {
+    setSlackError("");
+    if (!slackInput.startsWith("https://hooks.slack.com/")) {
+      setSlackError("Must be a Slack incoming webhook URL (starts with https://hooks.slack.com/)");
+      return;
+    }
+    setSlackSaving(true);
+    const token = await getToken();
+    const res = await fetch("/api/integrations/slack", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ slack_webhook_url: slackInput }),
+    });
+    const data = await res.json();
+    setSlackSaving(false);
+    if (data.error) {
+      setSlackError(data.error);
+    } else {
+      setSlack({ slack_webhook_url: slackInput, stripe_webhook_id: data.realtime ? "set" : null });
+      setSlackInput("");
+      setSlackOpen(false);
+    }
+  }
+
+  async function handleRemoveSlack() {
+    const token = await getToken();
+    await fetch("/api/integrations/slack", { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+    setSlack(null);
+    setSlackInput("");
+    setSlackOpen(false);
   }
 
   function copyPublicLink() {
@@ -414,6 +458,91 @@ export default function SettingsPage() {
               </button>
               <button
                 onClick={() => { setPublicOpen(false); setPublicError(""); }}
+                className="px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Slack Alerts Card */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <Bell size={14} className="text-indigo-500" />
+              <p className="text-sm font-semibold text-gray-800">Slack Alerts</p>
+              {slack?.stripe_webhook_id && (
+                <span className="text-[10px] font-semibold bg-green-50 text-green-600 px-2 py-0.5 rounded-full">Live</span>
+              )}
+            </div>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Real-time pings for new customers, cancellations, payments, and failures.
+            </p>
+          </div>
+        </div>
+
+        {slack ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 rounded-lg px-4 py-2.5">
+              <span className="text-green-500">✓</span>
+              <span className="text-xs text-gray-500">Connected</span>
+              {!slack.stripe_webhook_id && (
+                <span className="text-xs text-amber-500 ml-2">· Real-time unavailable (restricted key)</span>
+              )}
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setSlackOpen((o) => !o)}
+                className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors"
+              >
+                {slackOpen ? "Cancel" : "Update webhook URL"}
+              </button>
+              <button onClick={handleRemoveSlack} className="text-xs text-red-400 hover:text-red-600 transition-colors">
+                Disconnect
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setSlackOpen(true)}
+            className="w-full bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            Connect Slack
+          </button>
+        )}
+
+        {slackOpen && (
+          <div className="border border-gray-100 rounded-xl p-4 space-y-3 bg-gray-50">
+            {slackError && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{slackError}</p>
+            )}
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1.5">Slack Incoming Webhook URL</label>
+              <input
+                type="url"
+                placeholder="https://hooks.slack.com/services/..."
+                value={slackInput}
+                onChange={(e) => setSlackInput(e.target.value.trim())}
+                onKeyDown={(e) => e.key === "Enter" && handleSaveSlack()}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+              />
+              <p className="text-xs text-gray-400 mt-1.5">
+                Create one in Slack: <span className="text-indigo-500">Apps → Incoming Webhooks → Add to Slack</span>
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveSlack}
+                disabled={slackSaving || !slackInput}
+                className="flex-1 bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              >
+                {slackSaving ? "Connecting…" : "Save"}
+              </button>
+              <button
+                onClick={() => { setSlackOpen(false); setSlackError(""); }}
                 className="px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors"
               >
                 Cancel
