@@ -61,7 +61,7 @@ export default function Home() {
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatStreaming, setChatStreaming] = useState(false);
-  const chatBottomRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   const [emailDrafts, setEmailDrafts] = useState<Record<string, { content: string; loading: boolean; open: boolean }>>({});
   const [mrrMoM, setMrrMoM] = useState<number | null>(null);
@@ -235,7 +235,7 @@ export default function Home() {
           updated[updated.length - 1] = { role: "assistant", content: updated[updated.length - 1].content + chunk };
           return updated;
         });
-        chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+        if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
       }
     } catch {
       // fail silently
@@ -802,7 +802,7 @@ export default function Home() {
 
         {/* Chat thread */}
         {chatMessages.length > 0 && (
-          <div className="mt-6 space-y-4 border-t border-gray-100 pt-5">
+          <div ref={chatScrollRef} className="mt-6 space-y-4 border-t border-gray-100 pt-5 max-h-72 overflow-y-auto">
             {chatMessages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
@@ -817,7 +817,6 @@ export default function Home() {
                 </div>
               </div>
             ))}
-            <div ref={chatBottomRef} />
           </div>
         )}
 
