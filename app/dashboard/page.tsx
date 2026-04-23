@@ -673,6 +673,8 @@ export default function Home() {
 
     // Fire non-blocking AI fetches
     const recentChurns = parsedEvents.filter(e => e.type === "churn").slice(0, 3).map(e => ({ email: e.email, mrr: e.amount }));
+    // Use second-to-last waterfall month (last complete month) for churn split
+    const lastCompleteWf = calcWaterfall.length >= 2 ? calcWaterfall[calcWaterfall.length - 2] : calcWaterfall[calcWaterfall.length - 1] ?? null;
     fetchCommentary(sharedMetrics);
     fetchPriority({ ...sharedMetrics, mrrMoM: calcMrrMoM, nrr: calcNrr, recentChurns });
     fetchProse({
@@ -683,6 +685,8 @@ export default function Home() {
       arpu: calcArpu,
       mrrWaterfall: calcWaterfall,
       planRevenue: calcPlanRevenue,
+      contractionRevenue: lastCompleteWf ? Math.abs(lastCompleteWf.contraction) * 100 : 0,
+      waterfallChurnRevenue: lastCompleteWf ? Math.abs(lastCompleteWf.churn) * 100 : 0,
     });
   }
 

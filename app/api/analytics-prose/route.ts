@@ -45,8 +45,8 @@ function buildPrompt(m: any) {
     : "";
 
   const churnLine = m.churnTrend?.thisPeriod > 0
-    ? `${m.churnTrend.thisPeriod} cancellation${m.churnTrend.thisPeriod !== 1 ? "s" : ""} this period vs ${m.churnTrend.lastPeriod} last period.`
-    : "No cancellations this period.";
+    ? `${m.churnTrend.thisPeriod} formal cancellation${m.churnTrend.thisPeriod !== 1 ? "s" : ""} this period vs ${m.churnTrend.lastPeriod} last period.`
+    : "0 formal subscription cancellations this period.";
 
   const atRiskLine = m.churnRisk?.length
     ? `At-risk customers: ${(m.churnRisk as any[]).map((c: any) => `${c.email} (${c.daysPastDue}d overdue, ${fmt(c.mrr)}/mo)`).join(", ")}.`
@@ -61,14 +61,17 @@ Rules:
 - End each section with one concrete action or implication
 - No bullet points, no headers inside the text, no "great news"
 - 2–3 sentences per section
+- CRITICAL: Only state what the data directly shows. Never say the data is wrong, incomplete, or that measurement is broken.
+- CRITICAL: If formal cancellations = 0 but contraction or waterfall churn > 0, that means customers downgraded or quietly lapsed — say exactly that, do not question the measurement.
 
 Data:
 - MRR: ${fmt(m.mrr)} | MoM: ${m.mrrMoM !== null ? `${m.mrrMoM >= 0 ? "+" : ""}${m.mrrMoM}%` : "n/a"} | NRR: ${m.nrr !== null ? `${m.nrr}%` : "n/a"} | Quick Ratio: ${m.quickRatio ?? "n/a"}
 - ${waterfallLine}
+- Contraction (downgrades): ${fmt(m.contractionRevenue ?? 0)} | Silent exits (no cancellation event): ${fmt(m.waterfallChurnRevenue ?? 0)}
 - Revenue breakdown: ${fmt(m.breakdown?.new ?? 0)} new, ${fmt(m.breakdown?.renewal ?? 0)} renewals, ${fmt(m.breakdown?.upgrade ?? 0)} expansion
 - Plans: ${plansLine || "no plan data"}
 - ${churnLine}
-- Churn rate: ${m.churnRate !== undefined ? `${(m.churnRate).toFixed(1)}%` : "n/a"} | Lost to churn: ${fmt(m.churnRevenue ?? 0)}
+- Formal churn revenue: ${fmt(m.churnRevenue ?? 0)} | Churn rate (cancellations only): ${m.churnRate !== undefined ? `${(m.churnRate).toFixed(1)}%` : "n/a"}
 - ARPU: ${fmt(m.arpu ?? 0)}
 ${atRiskLine ? `- ${atRiskLine}` : ""}
 
@@ -78,5 +81,5 @@ Return a JSON object with exactly these three keys. No markdown fences.
 
 "mix": Which plans or segments are carrying the revenue, whether there's concentration risk, and whether the renewal base looks stable.
 
-"churn": The churn rate, who cancelled or is at risk (name them if you have their email), trend vs last period, and one specific action to address it.`;
+"churn": Use the contraction and silent-exit figures, not just the cancellation count. State plainly what type of revenue loss occurred (downgrades vs exits vs cancellations), name at-risk customers if present, and give one specific action.`;
 }
