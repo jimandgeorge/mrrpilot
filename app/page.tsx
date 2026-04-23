@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Check, Bell, Sparkles, Mail, BarChart2, Inbox, TrendingUp } from "lucide-react";
+import { ArrowRight, Check, Bell, Sparkles, Mail, BarChart2, Inbox, TrendingUp, Zap } from "lucide-react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -36,6 +36,9 @@ const jsonLd = {
     "Daily AI revenue briefing",
     "Revenue forecast and what-if scenarios",
     "Weekly email digest",
+    "Real-time Slack alerts",
+    "Cohort retention analysis",
+    "Automated dunning sequences",
   ],
 };
 
@@ -66,7 +69,7 @@ export default function LandingPage() {
             Revenue intelligence for SaaS founders
           </div>
           <h1 className="text-5xl font-bold text-gray-900 leading-tight tracking-tight mb-5">
-            Stop losing customers<br />you didn't know<br />were leaving.
+            Stop losing customers<br />you didn&apos;t know<br />were leaving.
           </h1>
           <p className="text-lg text-gray-500 leading-relaxed mb-8">
             RevInt connects to Stripe and watches your revenue for you. Failed payments, at-risk customers, MRR trends — surfaced instantly, explained in plain English, with the outreach email already written.
@@ -89,19 +92,24 @@ export default function LandingPage() {
         {/* Hero mock */}
         <div className="relative">
           <div className="bg-gradient-to-br from-gray-50 to-indigo-50/30 rounded-2xl border border-gray-200 p-5 shadow-xl shadow-indigo-100/40">
+            {/* Priority callout */}
+            <div className="bg-indigo-50 border-l-4 border-indigo-500 rounded-r-xl px-4 py-3 mb-3">
+              <p className="text-[9px] font-semibold text-indigo-400 uppercase tracking-widest mb-1">Today&apos;s priority</p>
+              <p className="text-xs font-medium text-indigo-900">Email jane@acme.com — her payment is 8 days overdue and worth £79/mo. A personal note now has a strong chance of saving it.</p>
+            </div>
             {/* Briefing */}
             <div className="bg-white rounded-xl border border-gray-100 p-4 mb-3">
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Your briefing · Monday</p>
-              <p className="text-sm text-gray-700 leading-relaxed">Two customers have overdue payments — reach out to <span className="font-semibold text-gray-900">Jane</span> and <span className="font-semibold text-gray-900">Mark</span> today before they cancel. MRR is up <span className="text-green-600 font-semibold">£340</span> this month. Your 3-month forecast: <span className="text-green-600 font-semibold">£6,240</span>.</p>
+              <p className="text-sm text-gray-700 leading-relaxed">Two customers have overdue payments — reach out to <span className="font-semibold text-gray-900">Jane</span> and <span className="font-semibold text-gray-900">Mark</span> today before they cancel. MRR is up <span className="text-green-600 font-semibold">£340</span> this month.</p>
               <span className="inline-block w-1 h-3 bg-indigo-400 ml-0.5 animate-pulse rounded-sm mt-1" />
             </div>
             {/* Metrics strip */}
             <div className="grid grid-cols-4 gap-2 mb-3">
               {[
-                { label: "MRR",  value: "£4,820", color: "text-gray-900" },
-                { label: "NRR",  value: "112%",   color: "text-green-600" },
-                { label: "ARPU", value: "£79",    color: "text-gray-900" },
-                { label: "Churn",value: "1.8%",   color: "text-green-600" },
+                { label: "MRR",   value: "£4,820", color: "text-gray-900" },
+                { label: "NRR",   value: "112%",   color: "text-green-600" },
+                { label: "ARPU",  value: "£79",    color: "text-gray-900" },
+                { label: "Churn", value: "1.8%",   color: "text-green-600" },
               ].map((m) => (
                 <div key={m.label} className="bg-white rounded-lg border border-gray-100 px-2 py-2 text-center">
                   <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{m.label}</p>
@@ -131,7 +139,7 @@ export default function LandingPage() {
             Most SaaS churn starts with a failed payment. Most founders find out too late — after the customer has already cancelled and moved on.
           </p>
           <p className="text-gray-500 mt-4 text-base leading-relaxed">
-            Stripe doesn't email you when a customer goes past due. Your spreadsheet doesn't flag who's been on a failed payment for 8 days. By the time you notice, it's too late to save them.
+            Stripe doesn&apos;t email you when a customer goes past due. Your spreadsheet doesn&apos;t flag who&apos;s been on a failed payment for 8 days. By the time you notice, it&apos;s too late to save them.
           </p>
         </div>
       </section>
@@ -157,8 +165,8 @@ export default function LandingPage() {
           {/* Mock */}
           <div className="space-y-3">
             {[
-              { email: "jane@acme.com",    days: 8, mrr: "£79/mo",  months: "14 months",  total: "£1,106" },
-              { email: "mark@startup.io",  days: 3, mrr: "£29/mo",  months: "6 months",   total: "£174"   },
+              { email: "jane@acme.com",   days: 8, mrr: "£79/mo", months: "14 months", total: "£1,106" },
+              { email: "mark@startup.io", days: 3, mrr: "£29/mo", months: "6 months",  total: "£174"   },
             ].map((c) => (
               <div key={c.email} className="bg-amber-50 border border-amber-100 rounded-2xl overflow-hidden">
                 <div className="px-5 py-4 flex items-start justify-between">
@@ -195,7 +203,7 @@ export default function LandingPage() {
             <div className="bg-white rounded-2xl border border-gray-200 p-5">
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-3">Your briefing · Tuesday</p>
               <p className="text-sm text-gray-700 leading-relaxed">
-                Jane's payment is now 9 days overdue — she's been a customer for 14 months and worth reaching out to personally. Mark updated his card overnight, so that risk is resolved. MRR is holding at <span className="font-semibold text-gray-900">£4,820</span>. No cancellations this week.
+                Jane&apos;s payment is now 9 days overdue — she&apos;s been a customer for 14 months and worth reaching out to personally. Mark updated his card overnight, so that risk is resolved. MRR is holding at <span className="font-semibold text-gray-900">£4,820</span>. No cancellations this week.
               </p>
               <span className="inline-block w-1 h-3 bg-indigo-400 ml-0.5 animate-pulse rounded-sm mt-2" />
             </div>
@@ -205,7 +213,7 @@ export default function LandingPage() {
                 <div className="bg-indigo-600 text-white text-xs rounded-2xl px-4 py-2 max-w-[80%]">What would you do about Jane?</div>
               </div>
               <div className="text-xs text-gray-700 leading-relaxed max-w-[90%]">
-                Jane has paid on time for 13 of her 14 months. That's a strong track record — this is almost certainly a card issue, not intention to cancel. A short personal note today has a high chance of saving her.
+                Jane has paid on time for 13 of her 14 months. That&apos;s a strong track record — this is almost certainly a card issue, not intention to cancel. A short personal note today has a high chance of saving her.
               </div>
               <div className="flex justify-end">
                 <div className="bg-indigo-600 text-white text-xs rounded-2xl px-4 py-2 max-w-[80%]">Draft that email for me</div>
@@ -242,7 +250,7 @@ export default function LandingPage() {
               The right email, written for you in one click.
             </h2>
             <p className="text-gray-500 leading-relaxed mb-6">
-              Not a template. A personal email tailored to that customer — their name, their plan, how long they've been with you, how much they've paid. The kind of email you'd write yourself if you had the time.
+              Not a template. A personal email tailored to that customer — their name, their plan, how long they&apos;ve been with you, how much they&apos;ve paid. The kind of email you&apos;d write yourself if you had the time.
             </p>
             <p className="text-gray-500 leading-relaxed">
               Copy it, send it, save the revenue. Most at-risk customers saved within 24 hours of a personal outreach.
@@ -259,12 +267,12 @@ export default function LandingPage() {
             </div>
             <div className="bg-white px-5 py-5">
               <p className="text-sm text-gray-700 leading-relaxed">
-                Hey Jane — just wanted to reach out personally. I noticed your payment didn't go through this month and wanted to check everything was okay before anything got interrupted.
+                Hey Jane — just wanted to reach out personally. I noticed your payment didn&apos;t go through this month and wanted to check everything was okay before anything got interrupted.
                 <br /><br />
-                You've been with us for 14 months and I'd genuinely hate to lose you over something we can sort quickly. Here's your billing link if you'd like to update your card:
+                You&apos;ve been with us for 14 months and I&apos;d genuinely hate to lose you over something we can sort quickly. Here&apos;s your billing link if you&apos;d like to update your card:
                 <span className="text-indigo-500"> billing.stripe.com/…</span>
                 <br /><br />
-                Happy to help if there's anything else going on.
+                Happy to help if there&apos;s anything else going on.
               </p>
               <div className="flex items-center gap-4 mt-4 pt-4 border-t border-gray-100">
                 <span className="text-xs font-semibold text-indigo-600 cursor-pointer">Copy to clipboard</span>
@@ -280,13 +288,12 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-16 items-center">
           {/* Mock dashboard */}
           <div className="space-y-3">
-            {/* Metrics strip */}
             <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4 flex items-center divide-x divide-gray-100">
               {[
-                { label: "MRR",         value: "£4,820", sub: "+£340 this month"  },
-                { label: "ARR",         value: "£57,840", sub: undefined           },
-                { label: "ARPU",        value: "£79",    sub: undefined           },
-                { label: "NRR",         value: "112%",   sub: undefined, green: true },
+                { label: "MRR",  value: "£4,820",  sub: "+£340 this month", green: false },
+                { label: "ARR",  value: "£57,840", sub: undefined,          green: false },
+                { label: "ARPU", value: "£79",     sub: undefined,          green: false },
+                { label: "NRR",  value: "112%",    sub: undefined,          green: true  },
               ].map((m) => (
                 <div key={m.label} className="flex-1 px-3 first:pl-0 last:pr-0 text-center">
                   <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">{m.label}</p>
@@ -295,7 +302,6 @@ export default function LandingPage() {
                 </div>
               ))}
             </div>
-            {/* MRR chart mock */}
             <div className="bg-white rounded-2xl border border-gray-200 p-5">
               <div className="flex items-end justify-between mb-1">
                 <div>
@@ -324,7 +330,7 @@ export default function LandingPage() {
               Every number that matters, live from Stripe.
             </h2>
             <p className="text-gray-500 leading-relaxed mb-6">
-              MRR, ARR, ARPU, NRR, growth rate, quick ratio, LTV — calculated automatically and updated in real time. No spreadsheets, no manual imports, no stale data.
+              MRR, ARR, ARPU, NRR, growth rate, quick ratio — calculated automatically and updated in real time. No spreadsheets, no manual imports, no stale data.
             </p>
             <p className="text-gray-500 leading-relaxed">
               A 3-month forecast based on your actual growth curve. An MRR waterfall showing new, expansion, contraction, and churn. Revenue by plan. The full picture, always current.
@@ -333,75 +339,43 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Feature story 5 — Forecast */}
+      {/* Feature story 5 — Real-time Slack alerts */}
       <section className="py-24 px-6 max-w-6xl mx-auto">
         <div className="grid md:grid-cols-2 gap-16 items-center">
           <div>
             <div className="inline-flex items-center gap-2 text-indigo-600 text-xs font-semibold mb-4">
-              <TrendingUp size={13} />
-              Revenue forecasting
+              <Zap size={13} />
+              Real-time Slack alerts
             </div>
             <h2 className="text-3xl font-bold text-gray-900 mb-4 leading-tight">
-              What does your MRR look like in 6 months — and what changes that?
+              Your revenue, in your Slack the moment it moves.
             </h2>
             <p className="text-gray-500 leading-relaxed mb-6">
-              Most founders run this in spreadsheets. RevInt builds it from your actual Stripe data — your real churn rate, your real growth, your real ARPU.
+              Connect your Slack workspace and RevInt posts every new customer, payment, failed charge, and cancellation in real time — straight into your chosen channel.
             </p>
             <p className="text-gray-500 leading-relaxed">
-              Adjust the sliders and watch your forecast update instantly. Add 5 customers a month. Halve your churn rate. See exactly what each lever is worth in pounds.
+              You see the customer name and amount in the message itself. No context switching, no checking Stripe, no finding out hours later.
             </p>
           </div>
-          {/* Mock */}
-          <div className="space-y-3">
-            {/* Summary cards */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-white border border-gray-200 rounded-2xl p-4">
-                <p className="text-[10px] text-gray-400 mb-1">Current trajectory</p>
-                <p className="text-xl font-bold text-gray-900">£7,240</p>
-                <p className="text-[10px] text-gray-400 mt-0.5">MRR in 6 months</p>
-              </div>
-              <div className="bg-indigo-600 rounded-2xl p-4">
-                <p className="text-[10px] text-indigo-200 mb-1">Your scenario</p>
-                <p className="text-xl font-bold text-white">£10,180</p>
-                <p className="text-[10px] text-green-300 font-semibold mt-0.5">+£2,940 vs base</p>
-              </div>
+          {/* Mock Slack feed */}
+          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+            <div className="bg-gray-50 border-b border-gray-100 px-5 py-3 flex items-center gap-2">
+              <span className="text-sm font-bold text-gray-700">#revenue</span>
+              <span className="text-xs text-gray-400">· connected to Stripe</span>
+              <span className="ml-auto w-2 h-2 bg-green-400 rounded-full" />
             </div>
-            {/* Mini chart */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-4">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-3">6-Month MRR Projection</p>
-              <div className="relative h-20">
-                {/* Base line (dashed, gray) */}
-                <svg className="absolute inset-0 w-full h-full" viewBox="0 0 300 80" preserveAspectRatio="none">
-                  <polyline points="0,70 60,62 120,54 180,48 240,43 300,38" fill="none" stroke="#d1d5db" strokeWidth="2" strokeDasharray="5 3" />
-                  <polyline points="0,70 60,56 120,44 180,30 240,18 300,8" fill="none" stroke="#4f46e5" strokeWidth="2.5" />
-                </svg>
-              </div>
-              <div className="flex items-center gap-5 mt-1 justify-end">
-                <span className="flex items-center gap-1 text-[10px] text-gray-400">
-                  <span className="inline-block w-4 border-t border-dashed border-gray-300" /> Current
-                </span>
-                <span className="flex items-center gap-1 text-[10px] text-indigo-500">
-                  <span className="inline-block w-4 border-t-2 border-indigo-500" /> Scenario
-                </span>
-              </div>
-            </div>
-            {/* Sliders mock */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-3">
+            <div className="divide-y divide-gray-50">
               {[
-                { label: "New customers / month", value: "5", accent: true },
-                { label: "Revenue per customer", value: "£49/mo", accent: false },
-                { label: "Monthly churn rate", value: "1.2%", accent: false },
-              ].map(({ label, value, accent }) => (
-                <div key={label} className="flex items-center justify-between gap-3">
-                  <div className="flex-1">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-[11px] text-gray-500">{label}</span>
-                      <span className={`text-[11px] font-bold ${accent ? "text-indigo-600" : "text-gray-700"}`}>{value}</span>
-                    </div>
-                    <div className="h-1 bg-gray-100 rounded-full">
-                      <div className={`h-1 rounded-full ${accent ? "bg-indigo-500 w-1/3" : "bg-gray-300 w-1/5"}`} />
-                    </div>
-                  </div>
+                { emoji: "🎉", text: "New customer — tom@beta-labs.io · £79/mo",        time: "2m ago",  bold: true  },
+                { emoji: "⚠️", text: "Payment failed — jane@acme.com · £79 at risk",     time: "8m ago",  bold: false },
+                { emoji: "💰", text: "Payment received — mark@startup.io · £29",          time: "1h ago",  bold: false },
+                { emoji: "😬", text: "Cancellation — old@client.com · £49/mo lost",       time: "3h ago",  bold: false },
+                { emoji: "🎉", text: "New customer — sarah@growthco.io · £149/mo",        time: "5h ago",  bold: true  },
+              ].map(({ emoji, text, time, bold }) => (
+                <div key={text} className="px-5 py-3.5 flex items-center gap-3">
+                  <span className="text-lg leading-none">{emoji}</span>
+                  <p className={`flex-1 text-sm ${bold ? "font-semibold text-gray-800" : "text-gray-600"}`}>{text}</p>
+                  <span className="text-[11px] text-gray-300 shrink-0">{time}</span>
                 </div>
               ))}
             </div>
@@ -409,67 +383,55 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Feature story 6 — Weekly digest */}
-      <section className="py-24 px-6 max-w-6xl mx-auto">
-        <div className="grid md:grid-cols-2 gap-16 items-center">
-          <div>
-            <div className="inline-flex items-center gap-2 text-purple-600 text-xs font-semibold mb-4">
-              <Inbox size={13} />
-              Weekly email digest
-            </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4 leading-tight">
-              Your week in revenue,<br />every Monday morning.
-            </h2>
-            <p className="text-gray-500 leading-relaxed mb-6">
-              While you're having your first coffee, RevInt has already summarised the week — new customers, churn, MRR movement, and who's at risk going into the week ahead.
-            </p>
-            <p className="text-gray-500 leading-relaxed">
-              You're notified the moment a customer goes past due too, so nothing slips between your Monday digests.
-            </p>
-          </div>
-          {/* Mock email */}
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-            <div className="bg-gray-50 border-b border-gray-100 px-5 py-3">
-              <p className="text-[11px] text-gray-400">From: RevInt · Monday 8:00 AM</p>
-              <p className="text-sm font-semibold text-gray-900 mt-0.5">Your week: MRR up £340, 1 customer needs attention</p>
-            </div>
-            <div className="px-5 py-5 space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: "MRR",       value: "£4,820", color: "text-gray-900" },
-                  { label: "New this week", value: "+£158", color: "text-green-600" },
-                  { label: "At risk",   value: "1",      color: "text-amber-600" },
-                ].map((m) => (
-                  <div key={m.label} className="bg-gray-50 rounded-xl p-3 text-center">
-                    <p className="text-[10px] text-gray-400 mb-0.5">{m.label}</p>
-                    <p className={`text-base font-bold ${m.color}`}>{m.value}</p>
-                  </div>
-                ))}
+      {/* Also included — compact feature grid */}
+      <section className="py-20 px-6 bg-gray-50 border-y border-gray-100">
+        <div className="max-w-6xl mx-auto">
+          <p className="text-xs font-semibold text-gray-400 text-center mb-10 tracking-widest uppercase">Also included</p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              {
+                icon: TrendingUp,
+                color: "text-indigo-500",
+                bg: "bg-indigo-50",
+                title: "Revenue forecast",
+                desc: "3-month MRR projection from your actual growth curve. Adjust churn and new customer sliders to model scenarios.",
+              },
+              {
+                icon: Inbox,
+                color: "text-purple-500",
+                bg: "bg-purple-50",
+                title: "Weekly email digest",
+                desc: "Every Monday morning: MRR movement, new customers, churn, and who needs your attention going into the week.",
+              },
+              {
+                icon: BarChart2,
+                color: "text-blue-500",
+                bg: "bg-blue-50",
+                title: "Cohort retention",
+                desc: "See which monthly cohorts stick and which drop off — a heat-map table built from your real payment history.",
+              },
+              {
+                icon: Mail,
+                color: "text-green-500",
+                bg: "bg-green-50",
+                title: "Automated dunning",
+                desc: "Day 1, 3, and 7 recovery emails drafted and queued the moment a payment fails. Pre-written, personalised, ready to send.",
+              },
+            ].map(({ icon: Icon, color, bg, title, desc }) => (
+              <div key={title} className="bg-white rounded-2xl border border-gray-200 p-6">
+                <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center mb-4`}>
+                  <Icon size={16} className={color} />
+                </div>
+                <p className="text-sm font-semibold text-gray-900 mb-2">{title}</p>
+                <p className="text-xs text-gray-500 leading-relaxed">{desc}</p>
               </div>
-              <div className="space-y-2">
-                {[
-                  { dot: "bg-green-500", text: "2 new customers · acme.com, beta-labs.io" },
-                  { dot: "bg-amber-400", text: "jane@acme.com · 8 days past due · act today" },
-                  { dot: "bg-indigo-400", text: "Forecast in 3 months: £6,240 (+29%)" },
-                ].map(({ dot, text }) => (
-                  <div key={text} className="flex items-start gap-2.5">
-                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1 ${dot}`} />
-                    <p className="text-xs text-gray-600">{text}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="pt-3 border-t border-gray-100">
-                <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-lg">
-                  Draft outreach to Jane →
-                </span>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* How it works */}
-      <section className="border-y border-gray-100 bg-gray-50 py-20 px-6">
+      <section className="border-y border-gray-100 bg-white py-20 px-6">
         <div className="max-w-6xl mx-auto">
           <p className="text-xs font-semibold text-gray-400 text-center mb-12 tracking-widest uppercase">Up and running in under a minute</p>
           <div className="grid md:grid-cols-3 gap-8">
@@ -505,24 +467,28 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Social proof */}
-      <section className="py-20 px-6">
-        <div className="max-w-3xl mx-auto text-center">
-          <p className="text-2xl font-semibold text-gray-900 leading-relaxed mb-6">
-            "I lost £3,400 in one month to preventable churn. Three customers had failed payments for weeks and I had no idea until they'd already cancelled. RevInt is what I wish I'd had."
+      {/* Founder story */}
+      <section className="py-20 px-6 border-b border-gray-100">
+        <div className="max-w-3xl mx-auto">
+          <p className="text-xs font-semibold text-gray-400 tracking-widest uppercase mb-6">Why this exists</p>
+          <p className="text-2xl font-semibold text-gray-900 leading-relaxed mb-4">
+            In one month I lost £3,400 to preventable churn. Three customers had failed payments for weeks. I found out after they&apos;d already cancelled and moved on.
           </p>
-          <div className="flex items-center justify-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-bold text-indigo-600">B</div>
-            <div className="text-left">
-              <p className="text-sm font-semibold text-gray-900">Brendan, founder of RevInt</p>
-              <p className="text-xs text-gray-400">Built this after losing customers he could have kept</p>
+          <p className="text-gray-500 text-base leading-relaxed mb-8">
+            Stripe had flagged the failures. I just never saw them. I built RevInt so that can&apos;t happen — to me, or to any other founder running a SaaS on their own. Every feature in here exists because I needed it and it didn&apos;t exist.
+          </p>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-bold text-indigo-600">B</div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Brendan</p>
+              <p className="text-xs text-gray-400">Founder, RevInt</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Pricing */}
-      <section className="bg-gray-50 border-y border-gray-100 px-6 py-24">
+      <section className="bg-gray-50 border-b border-gray-100 px-6 py-24">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
             <h2 className="text-3xl font-bold text-gray-900 mb-3">Simple, honest pricing</h2>
@@ -544,7 +510,8 @@ export default function LandingPage() {
                   "Conversational revenue chat",
                   "Revenue forecast & what-if scenarios",
                   "Weekly email digest",
-                  "Customer detail pages",
+                  "Real-time Slack alerts",
+                  "Cohort retention analysis",
                 ].map((f) => (
                   <li key={f} className="flex items-center gap-2.5 text-sm text-gray-600">
                     <Check size={13} className="text-gray-400 shrink-0" />
@@ -574,7 +541,8 @@ export default function LandingPage() {
                   "Conversational revenue chat",
                   "Revenue forecast & what-if scenarios",
                   "Weekly email digest",
-                  "Customer detail pages",
+                  "Real-time Slack alerts",
+                  "Cohort retention analysis",
                 ].map((f) => (
                   <li key={f} className="flex items-center gap-2.5 text-sm text-indigo-100">
                     <Check size={13} className="text-indigo-300 shrink-0" />
@@ -595,7 +563,7 @@ export default function LandingPage() {
       <section className="bg-indigo-600 py-20 px-6">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-3xl font-bold text-white mb-3">Stop finding out too late.</h2>
-          <p className="text-indigo-200 mb-8 leading-relaxed">Connect Stripe in 30 seconds. See who's at risk today. Save the customers you would have lost.</p>
+          <p className="text-indigo-200 mb-8 leading-relaxed">Connect Stripe in 30 seconds. See who&apos;s at risk today. Save the customers you would have lost.</p>
           <Link href="/login" className="inline-flex items-center gap-2 bg-white text-indigo-600 font-semibold px-8 py-3.5 rounded-xl hover:bg-indigo-50 transition-colors">
             Start your free trial <ArrowRight size={15} />
           </Link>
