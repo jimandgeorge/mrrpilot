@@ -48,7 +48,19 @@ function buildPrompt(m: any) {
     ? `${m.churnTrend.thisPeriod} cancellation${m.churnTrend.thisPeriod !== 1 ? "s" : ""} this period vs ${m.churnTrend.lastPeriod} last period.`
     : "No cancellations this period.";
 
-  return `You are writing 3 short plain-English sections for a SaaS founder's revenue dashboard. Each section replaces a chart — your words are the data visualisation. Be specific with numbers. Sound like a sharp analyst, not a report. No bullet points. No headers inside the text. No "great news". 2–3 sentences each.
+  const atRiskLine = m.churnRisk?.length
+    ? `At-risk customers: ${(m.churnRisk as any[]).map((c: any) => `${c.email} (${c.daysPastDue}d overdue, ${fmt(c.mrr)}/mo)`).join(", ")}.`
+    : "";
+
+  return `You are writing 3 short plain-English sections for a SaaS founder's revenue dashboard. Each section replaces a chart — your words are the data. Sound like a sharp analyst who knows this specific business, not a generic report.
+
+Rules:
+- Be specific with £ numbers
+- Name specific customers or emails when they appear in the data — don't say "a customer", say their email
+- Explain WHY things happened, not just what (e.g. "expansion drove the gain" not just "MRR grew")
+- End each section with one concrete action or implication
+- No bullet points, no headers inside the text, no "great news"
+- 2–3 sentences per section
 
 Data:
 - MRR: ${fmt(m.mrr)} | MoM: ${m.mrrMoM !== null ? `${m.mrrMoM >= 0 ? "+" : ""}${m.mrrMoM}%` : "n/a"} | NRR: ${m.nrr !== null ? `${m.nrr}%` : "n/a"} | Quick Ratio: ${m.quickRatio ?? "n/a"}
@@ -58,12 +70,13 @@ Data:
 - ${churnLine}
 - Churn rate: ${m.churnRate !== undefined ? `${(m.churnRate).toFixed(1)}%` : "n/a"} | Lost to churn: ${fmt(m.churnRevenue ?? 0)}
 - ARPU: ${fmt(m.arpu ?? 0)}
+${atRiskLine ? `- ${atRiskLine}` : ""}
 
 Return a JSON object with exactly these three keys. No markdown fences.
 
-"momentum": 2–3 sentences on MRR movement — what drove last month's change, whether growth is accelerating or stalling, and what the trend means for the next few months.
+"momentum": What drove last month's MRR change and whether the trajectory is improving or stalling. End with what this means for the next 60 days.
 
-"mix": 2–3 sentences on revenue composition — which plans are pulling their weight, any concentration risk, whether the renewal base is healthy.
+"mix": Which plans or segments are carrying the revenue, whether there's concentration risk, and whether the renewal base looks stable.
 
-"churn": 2–3 sentences on churn — rate, cancellations this period, trend vs last period. If churn is low or zero, say so plainly and note what that means for NRR or retention.`;
+"churn": The churn rate, who cancelled or is at risk (name them if you have their email), trend vs last period, and one specific action to address it.`;
 }

@@ -67,6 +67,9 @@ export default function Home() {
   const [mrrMoM, setMrrMoM] = useState<number | null>(null);
   const [prose, setProse] = useState<{ momentum: string | null; mix: string | null; churn: string | null }>({ momentum: null, mix: null, churn: null });
   const [proseLoading, setProseLoading] = useState(false);
+  const [priority, setPriority] = useState("");
+  const [priorityLoading, setPriorityLoading] = useState(false);
+  const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
 
   // Load goal from API (falls back to localStorage for existing users)
   useEffect(() => {
@@ -190,6 +193,29 @@ export default function Home() {
       // non-critical
     }
     setProseLoading(false);
+  }
+
+  async function fetchPriority(metrics: object) {
+    setPriority("");
+    setPriorityLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/priority", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
+        body: JSON.stringify(metrics),
+      });
+      if (!res.ok || !res.body) return;
+      setPriorityLoading(false);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        setPriority((prev) => prev + decoder.decode(value, { stream: true }));
+      }
+    } catch { }
+    setPriorityLoading(false);
   }
 
   async function sendChat(e: React.FormEvent) {
@@ -634,8 +660,21 @@ export default function Home() {
       churnRisk: churnRisk.map(c => ({ email: c.email, daysPastDue: c.daysPastDue, mrr: c.mrr })),
     };
 
+    // Suggested questions based on data state
+    const questions: string[] = [];
+    if (churnRisk.length > 0) questions.push(`Why is ${churnRisk[0].email} at risk?`);
+    if (churnsThisPeriod.length > churnsLastPeriod.length) questions.push("What's driving the increase in churn?");
+    if (calcMrrMoM !== null && calcMrrMoM < 0) questions.push("Why did revenue drop this month?");
+    if (calcMrrMoM !== null && calcMrrMoM > 15) questions.push("What's driving my growth right now?");
+    if (calcNrr !== null && calcNrr < 90) questions.push("How do I improve my retention?");
+    const defaults = ["Who should I reach out to today?", "What's my biggest risk right now?", "Which customers are most likely to upgrade?", "What should I focus on this week?"];
+    for (const d of defaults) { if (questions.length >= 3) break; questions.push(d); }
+    setSuggestedQuestions(questions.slice(0, 3));
+
     // Fire non-blocking AI fetches
+    const recentChurns = parsedEvents.filter(e => e.type === "churn").slice(0, 3).map(e => ({ email: e.email, mrr: e.amount }));
     fetchCommentary(sharedMetrics);
+    fetchPriority({ ...sharedMetrics, mrrMoM: calcMrrMoM, nrr: calcNrr, recentChurns });
     fetchProse({
       ...sharedMetrics,
       mrrMoM: calcMrrMoM,
@@ -788,6 +827,17 @@ export default function Home() {
             </button>
           )}
         </div>
+        {(priorityLoading || priority) && (
+          <div className="mb-5 bg-indigo-50 border-l-4 border-indigo-500 rounded-r-xl px-4 py-3">
+            <p className="text-[10px] font-semibold text-indigo-400 uppercase tracking-widest mb-1">Today&apos;s priority</p>
+            {priorityLoading ? (
+              <div className="h-4 bg-indigo-100 rounded w-3/4 animate-pulse" />
+            ) : (
+              <p className="text-sm font-medium text-indigo-900">{priority}</p>
+            )}
+          </div>
+        )}
+
         {commentaryLoading ? (
           <div className="space-y-3 animate-pulse">
             <p className="text-xs text-gray-400 mb-4">Analysing your revenue…</p>
@@ -838,6 +888,16 @@ export default function Home() {
             Ask
           </button>
         </form>
+        {chatMessages.length === 0 && !chatStreaming && suggestedQuestions.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {suggestedQuestions.map((q) => (
+              <button key={q} onClick={() => setChatInput(q)}
+                className="text-xs text-gray-400 hover:text-indigo-600 border border-gray-100 hover:border-indigo-200 px-3 py-1.5 rounded-full transition-colors">
+                {q}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Urgent callouts — conversational */}
