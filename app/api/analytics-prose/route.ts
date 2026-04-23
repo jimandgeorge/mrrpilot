@@ -41,7 +41,7 @@ function buildPrompt(m: any) {
     : "";
 
   const plansLine = m.planRevenue?.length
-    ? m.planRevenue.map((p: any) => `${p.name}: ${p.customers} customer${p.customers !== 1 ? "s" : ""} · ${fmt(p.mrr * 100)}/mo (${p.pct}%)`).join(", ")
+    ? m.planRevenue.map((p: any) => `${p.name}: ${p.customers} customer${p.customers !== 1 ? "s" : ""} · ${fmt(p.mrr)}/mo (${p.pct}%)`).join(", ")
     : "";
 
   const churnLine = m.churnTrend?.thisPeriod > 0
