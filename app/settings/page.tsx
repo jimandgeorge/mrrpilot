@@ -33,6 +33,13 @@ export default function SettingsPage() {
   const [pwError, setPwError] = useState("");
   const [pwSuccess, setPwSuccess] = useState("");
 
+  // Paddle
+  const [paddleConnected, setPaddleConnected] = useState(false);
+  const [paddleAddOpen, setPaddleAddOpen] = useState(false);
+  const [paddleNewKey, setPaddleNewKey] = useState("");
+  const [paddleSaving, setPaddleSaving] = useState(false);
+  const [paddleError, setPaddleError] = useState("");
+
   // Slack
   const [slack, setSlack] = useState<SlackIntegration>(null);
   const [slackInput, setSlackInput] = useState("");
@@ -75,7 +82,11 @@ export default function SettingsPage() {
       getToken()
         .then((token) => fetch("/api/integrations/slack", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()))
         .catch(() => null),
-    ]).then(([, publicRes, slackRes]) => {
+      getToken()
+        .then((token) => fetch("/api/paddle/connect", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()))
+        .catch(() => null),
+    ]).then(([, publicRes, slackRes, paddleRes]) => {
+      if (paddleRes?.connected) setPaddleConnected(true);
       if (publicRes?.page) {
         const p = publicRes.page;
         setPublicPage(p);
@@ -222,6 +233,34 @@ export default function SettingsPage() {
     setSlack(null);
     setSlackInput("");
     setSlackOpen(false);
+  }
+
+  async function handlePaddleConnect() {
+    setPaddleError("");
+    const key = paddleNewKey.trim();
+    if (!key) return;
+    setPaddleSaving(true);
+    const token = await getToken();
+    const res = await fetch("/api/paddle/connect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ paddleKey: key }),
+    });
+    const data = await res.json();
+    setPaddleSaving(false);
+    if (data.error) {
+      setPaddleError(data.error);
+    } else {
+      setPaddleConnected(true);
+      setPaddleNewKey("");
+      setPaddleAddOpen(false);
+    }
+  }
+
+  async function handlePaddleDisconnect() {
+    const token = await getToken();
+    await fetch("/api/paddle/connect", { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+    setPaddleConnected(false);
   }
 
   function copyPublicLink() {
@@ -419,6 +458,78 @@ export default function SettingsPage() {
         {success && (
           <div className="px-6 py-3 border-t border-gray-100">
             <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-4 py-2">{success}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Paddle Card */}
+      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-gray-800">Paddle</p>
+            <p className="text-xs text-gray-400 mt-0.5">Connect Paddle Billing to use RevInt with your Paddle subscriptions.</p>
+          </div>
+          {paddleConnected && (
+            <span className="text-[10px] font-semibold bg-green-50 text-green-600 px-2 py-0.5 rounded-full">Connected</span>
+          )}
+        </div>
+
+        {paddleConnected ? (
+          <div className="px-6 py-4 flex items-center gap-4">
+            <span className="text-xs text-green-600">✓ Paddle account connected</span>
+            <button
+              onClick={handlePaddleDisconnect}
+              className="text-xs text-red-400 hover:text-red-600 transition-colors"
+            >
+              Disconnect
+            </button>
+          </div>
+        ) : (
+          <div className="px-6 py-4">
+            {!paddleAddOpen ? (
+              <button
+                onClick={() => { setPaddleAddOpen(true); setPaddleError(""); }}
+                className="w-full bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                Connect Paddle
+              </button>
+            ) : (
+              <div className="space-y-3">
+                {paddleError && (
+                  <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{paddleError}</p>
+                )}
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1.5">Paddle API Key</label>
+                  <input
+                    type="password"
+                    placeholder="pdl_live_… or pdl_sdbx_…"
+                    value={paddleNewKey}
+                    onChange={(e) => setPaddleNewKey(e.target.value.trim())}
+                    onKeyDown={(e) => e.key === "Enter" && handlePaddleConnect()}
+                    autoComplete="off"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                  <p className="text-xs text-gray-400 mt-1.5">
+                    Found in your <span className="text-indigo-500">Paddle Dashboard → Developer Tools → Authentication</span>.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handlePaddleConnect}
+                    disabled={paddleSaving || !paddleNewKey}
+                    className="flex-1 bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {paddleSaving ? "Validating…" : "Connect"}
+                  </button>
+                  <button
+                    onClick={() => { setPaddleAddOpen(false); setPaddleError(""); }}
+                    className="px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

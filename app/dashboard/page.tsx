@@ -106,18 +106,21 @@ export default function Home() {
       setBilling(billingData);
       if (billingData.trialExpired) { setLoading(false); setRefreshing(false); return; }
 
-      const url = manual ? "/api/stripe?manual=1" : "/api/stripe";
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
-      });
-      const data = await res.json();
-      if (data.rateLimited) {
-        setCooldownUntil(Date.now() + data.secondsLeft * 1000);
-        setRefreshing(false);
-        setLoading(false);
-        return;
+      // Try Stripe first, fall back to Paddle
+      const suffix = manual ? "?manual=1" : "";
+      let data = null;
+      for (const endpoint of [`/api/stripe${suffix}`, `/api/paddle${suffix}`]) {
+        const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${session?.access_token ?? ""}` } });
+        const d = await res.json();
+        if (d.rateLimited) {
+          setCooldownUntil(Date.now() + d.secondsLeft * 1000);
+          setRefreshing(false);
+          setLoading(false);
+          return;
+        }
+        if (!d.notConnected) { data = d; break; }
       }
-      if (data.notConnected) { setNotConnected(true); setLoading(false); return; }
+      if (!data) { setNotConnected(true); setLoading(false); return; }
       setRawData(data);
       setPastDue(data.pastDueInvoices || []);
       setChurnRisk(data.atRiskSubscriptions || []);
