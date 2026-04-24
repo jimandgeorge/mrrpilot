@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getActiveStripeKey } from "@/lib/get-stripe-key";
+import { normaliseStripeInvoice, normaliseStripeEvent } from "@/lib/providers/stripe-normalise";
 
 export async function GET(request: NextRequest) {
   // Resolve per-user Stripe key — no global fallback
@@ -234,10 +235,10 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a: any, b: any) => b.amount - a.amount);
 
-    // 📤 Return data
+    // 📤 Return data — invoices and events normalised to provider-agnostic shape
     return NextResponse.json({
-      invoices,
-      events,
+      invoices: invoices.map(normaliseStripeInvoice),
+      events: events.map(normaliseStripeEvent),
       customers,
       churnEvents,
       pastDueInvoices,

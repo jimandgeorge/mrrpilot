@@ -325,7 +325,7 @@ export default function Home() {
     // Customer ID → email map
     const customerEmailMap: Record<string, string> = {};
     invoices.forEach((inv: any) => {
-      if (inv.customer && inv.customer_email) customerEmailMap[inv.customer] = inv.customer_email;
+      if (inv.customerId && inv.customerEmail) customerEmailMap[inv.customerId] = inv.customerEmail;
     });
 
     // MRR — sourced from active subscription data (prices are expanded there, not on invoice line items)
@@ -339,7 +339,7 @@ export default function Home() {
     );
     const latestByCustomer: Record<string, any> = {};
     invoices.forEach((inv: any) => {
-      const customerId = inv.customer;
+      const customerId = inv.customerId;
       if (!customerId) return;
       if (churnedIdSet.has(customerId)) return;
       if (!latestByCustomer[customerId] || inv.created > latestByCustomer[customerId].created) {
@@ -373,8 +373,8 @@ export default function Home() {
     // Customers who had a paid invoice last month
     const lastMonthCustomers = new Set<string>();
     invoices.forEach((inv: any) => {
-      if (inv.customer && inv.amount_paid > 0 && inv.created >= sixtyDaysAgo && inv.created < thirtyDaysAgo) {
-        lastMonthCustomers.add(inv.customer);
+      if (inv.customerId && inv.amountPaid > 0 && inv.created >= sixtyDaysAgo && inv.created < thirtyDaysAgo) {
+        lastMonthCustomers.add(inv.customerId);
       }
     });
 
@@ -382,16 +382,9 @@ export default function Home() {
     const mrrLastMonth: Record<string, number> = {};
     const mrrThisMonth: Record<string, number> = {};
     invoices.forEach((inv: any) => {
-      const id = inv.customer;
-      if (!id || !inv.amount_paid) return;
-      const line = inv.lines?.data?.[0];
-      const interval = line?.price?.recurring?.interval;
-      const intervalCount = line?.price?.recurring?.interval_count || 1;
-      let monthly = inv.amount_paid;
-      if (interval === "year") monthly = Math.round(monthly / (12 * intervalCount));
-      else if (interval === "week") monthly = Math.round((monthly * 52) / (12 * intervalCount));
-      else monthly = Math.round(monthly / intervalCount);
-
+      const id = inv.customerId;
+      if (!id || !inv.amountPaid) return;
+      const monthly = inv.monthlyAmount;
       if (inv.created >= sixtyDaysAgo && inv.created < thirtyDaysAgo) {
         mrrLastMonth[id] = (mrrLastMonth[id] || 0) + monthly;
       }
@@ -411,19 +404,13 @@ export default function Home() {
     // MRR Waterfall — monthly MRR per customer, then classify movements
     const monthCustomerMrr: Record<string, Record<string, number>> = {};
     invoices.forEach((inv: any) => {
-      if (!inv.amount_paid || !inv.customer) return;
+      if (!inv.amountPaid || !inv.customerId) return;
       const d = new Date(inv.created * 1000);
       const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const line = inv.lines?.data?.[0];
-      const interval = line?.price?.recurring?.interval;
-      const ic = line?.price?.recurring?.interval_count || 1;
-      let mo = inv.amount_paid;
-      if (interval === "year") mo = Math.round(mo / (12 * ic));
-      else if (interval === "week") mo = Math.round((mo * 52) / (12 * ic));
-      else mo = Math.round(mo / ic);
+      const mo = inv.monthlyAmount;
       if (!monthCustomerMrr[mk]) monthCustomerMrr[mk] = {};
-      if (!monthCustomerMrr[mk][inv.customer] || mo > monthCustomerMrr[mk][inv.customer])
-        monthCustomerMrr[mk][inv.customer] = mo;
+      if (!monthCustomerMrr[mk][inv.customerId] || mo > monthCustomerMrr[mk][inv.customerId])
+        monthCustomerMrr[mk][inv.customerId] = mo;
     });
     const wfMonths = Object.keys(monthCustomerMrr).sort();
     const calcWaterfall = wfMonths.slice(-12).map((month, idx, arr) => {
@@ -459,23 +446,23 @@ export default function Home() {
     const sortedInvoices = [...invoices].sort((a: any, b: any) => a.created - b.created);
     const seenCustomers = new Set<string>(); // tracks customer IDs
     const parsedEvents: EventItem[] = sortedInvoices.map((inv: any) => {
-      const customerId = inv.customer;
-      const email = inv.customer_email || "Unknown";
-      const amount = inv.amount_paid;
+      const customerId = inv.customerId;
+      const email = inv.customerEmail || "Unknown";
+      const amount = inv.amountPaid;
       const date = new Date(inv.created * 1000);
       let type: EventItem["type"] = "renewal";
       if (customerId && !seenCustomers.has(customerId)) { type = "new"; seenCustomers.add(customerId); }
-      if (inv.billing_reason === "subscription_update") type = "upgrade";
+      if (inv.billingReason === "subscription_update") type = "upgrade";
       return { amount, date, email, customerId, type };
     });
     const churnedCustomers = new Set<string>();
     stripeEvents.forEach((evt: any) => {
       if (evt.type === "customer.subscription.deleted") {
-        const customerId = evt.data.object.customer;
+        const customerId = evt.customerId;
         if (!churnedCustomers.has(customerId)) {
           churnedCustomers.add(customerId);
           parsedEvents.push({
-            amount: evt.data.object.items?.data?.[0]?.price?.unit_amount ?? 0,
+            amount: evt.monthlyAmount,
             date: new Date(evt.created * 1000),
             email: customerEmailMap[customerId] || "Unknown",
             customerId,
@@ -560,16 +547,10 @@ export default function Home() {
     // MRR history (monthly) — used for MoM and forecast
     const byMonth: Record<string, number> = {};
     invoices.forEach((inv: any) => {
-      if (!inv.amount_paid) return;
+      if (!inv.amountPaid) return;
       const d = new Date(inv.created * 1000);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const line = inv.lines?.data?.[0];
-      const interval = line?.price?.recurring?.interval;
-      const intervalCount = line?.price?.recurring?.interval_count || 1;
-      let monthly = inv.amount_paid;
-      if (interval === "year") monthly = Math.round(monthly / (12 * intervalCount));
-      else if (interval === "week") monthly = Math.round((monthly * 52) / (12 * intervalCount));
-      byMonth[key] = (byMonth[key] || 0) + monthly;
+      byMonth[key] = (byMonth[key] || 0) + inv.monthlyAmount;
     });
     const history = Object.entries(byMonth)
       .sort(([a], [b]) => a.localeCompare(b))
