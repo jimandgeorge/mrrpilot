@@ -1,13 +1,48 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { CheckCircle2, ArrowRight, Shield, ExternalLink } from "lucide-react";
+import { CheckCircle2, ArrowRight, Shield, ExternalLink, ChevronLeft } from "lucide-react";
 
-type Step = "loading" | "connect" | "done";
+type Step = "loading" | "pick" | "connect" | "done";
+type ProviderId = "stripe" | "paddle" | "revolut";
+
+const PROVIDERS = [
+  {
+    id: "stripe" as ProviderId,
+    name: "Stripe",
+    tagline: "Paste your Stripe secret key",
+    placeholder: "sk_live_... or sk_test_...",
+    hint: "Stripe → Developers → API keys",
+    hintUrl: "https://dashboard.stripe.com/apikeys",
+    bodyKey: "stripeKey",
+    endpoint: "/api/stripe/connect",
+  },
+  {
+    id: "paddle" as ProviderId,
+    name: "Paddle",
+    tagline: "Paste your Paddle API key",
+    placeholder: "Your Paddle API key...",
+    hint: "Paddle → Developer Tools → Authentication",
+    hintUrl: "https://vendors.paddle.com/authentication",
+    bodyKey: "paddleKey",
+    endpoint: "/api/paddle/connect",
+  },
+  {
+    id: "revolut" as ProviderId,
+    name: "Revolut",
+    tagline: "Paste your Revolut Merchant API key",
+    placeholder: "Your Revolut API key...",
+    hint: "Revolut Business → APIs → Merchant API",
+    hintUrl: "https://business.revolut.com/merchant",
+    bodyKey: "revolutKey",
+    endpoint: "/api/revolut/connect",
+  },
+];
 
 export default function OnboardingPage() {
   const [step, setStep] = useState<Step>("loading");
+  const [providerId, setProviderId] = useState<ProviderId | null>(null);
   const [keyInput, setKeyInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -15,40 +50,41 @@ export default function OnboardingPage() {
   useEffect(() => {
     async function check() {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        window.location.href = "/login";
-        return;
-      }
-      const { data } = await supabase
-        .from("stripe_connections")
-        .select("id")
-        .limit(1);
-      if (data && data.length > 0) {
+      if (!session) { window.location.href = "/login"; return; }
+      const token = session.access_token;
+
+      const [stripe, paddle, revolut] = await Promise.all([
+        fetch("/api/stripe/connect", { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => ({})),
+        fetch("/api/paddle/connect", { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => ({})),
+        fetch("/api/revolut/connect", { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => ({})),
+      ]);
+
+      if (stripe.connected || paddle.connected || revolut.connected) {
         window.location.href = "/dashboard";
       } else {
-        setStep("connect");
+        setStep("pick");
       }
     }
     check();
   }, []);
 
+  const provider = PROVIDERS.find(p => p.id === providerId) ?? null;
+
   async function handleConnect() {
+    if (!provider) return;
     setError("");
-    const trimmedKey = keyInput.trim();
-    if (!trimmedKey.startsWith("sk_")) {
-      setError("Key must start with sk_live_ or sk_test_");
+    const key = keyInput.trim();
+    if (!key) { setError("Please enter your API key."); return; }
+    if (provider.id === "stripe" && !key.startsWith("sk_")) {
+      setError("Stripe key must start with sk_live_ or sk_test_");
       return;
     }
     setSaving(true);
     const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token ?? "";
-    const res = await fetch("/api/stripe/connect", {
+    const res = await fetch(provider.endpoint, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ stripeKey: trimmedKey }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
+      body: JSON.stringify({ [provider.bodyKey]: key }),
     });
     const data = await res.json();
     setSaving(false);
@@ -56,9 +92,7 @@ export default function OnboardingPage() {
       setError(data.error);
     } else {
       setStep("done");
-      setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 2000);
+      setTimeout(() => { window.location.href = "/dashboard"; }, 2000);
     }
   }
 
@@ -72,6 +106,7 @@ export default function OnboardingPage() {
 
   return (
     <main className="min-h-screen bg-white flex">
+
       {/* Left panel */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-600 to-indigo-800 flex-col justify-between p-12 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10"
@@ -85,7 +120,7 @@ export default function OnboardingPage() {
               You're one step<br />away from clarity.
             </h1>
             <p className="text-indigo-200 text-base leading-relaxed">
-              Connect your Stripe account and Revenue Intelligence will pull your MRR, flag at-risk customers, and brief you every morning.
+              Connect Stripe, Paddle, or Revolut and Revenue Intelligence will pull your MRR, flag at-risk customers, and brief you every morning.
             </p>
           </div>
           <div className="space-y-4">
@@ -108,7 +143,6 @@ export default function OnboardingPage() {
       <div className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
 
-          {/* Mobile brand */}
           <div className="lg:hidden text-center mb-8">
             <p className="text-xl font-bold text-gray-900">Revenue Intelligence</p>
           </div>
@@ -119,14 +153,14 @@ export default function OnboardingPage() {
                 <CheckCircle2 size={32} className="text-green-500" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Stripe connected!</h2>
+                <h2 className="text-xl font-bold text-gray-900">{provider?.name} connected!</h2>
                 <p className="text-sm text-gray-500 mt-1">Taking you to your dashboard…</p>
               </div>
               <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin mx-auto" />
             </div>
-          ) : (
+
+          ) : step === "pick" ? (
             <div>
-              {/* Progress indicator */}
               <div className="flex items-center gap-2 mb-8">
                 <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center">
                   <span className="text-white text-xs font-bold">1</span>
@@ -137,9 +171,48 @@ export default function OnboardingPage() {
                 </div>
               </div>
 
-              <h2 className="text-xl font-bold text-gray-900 mb-1">Connect your Stripe account</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-1">Choose your payment provider</h2>
+              <p className="text-sm text-gray-500 mb-6">Select the platform you use to collect subscription payments.</p>
+
+              <div className="space-y-3">
+                {PROVIDERS.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => { setProviderId(p.id); setStep("connect"); setKeyInput(""); setError(""); }}
+                    className="w-full flex items-center justify-between border border-gray-200 rounded-xl px-4 py-3.5 hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors text-left group"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{p.name}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{p.tagline}</p>
+                    </div>
+                    <ArrowRight size={15} className="text-gray-300 group-hover:text-indigo-400 transition-colors shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+          ) : step === "connect" && provider ? (
+            <div>
+              <div className="flex items-center gap-2 mb-8">
+                <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center">
+                  <span className="text-white text-xs font-bold">1</span>
+                </div>
+                <div className="h-px flex-1 bg-indigo-300" />
+                <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center">
+                  <span className="text-white text-xs font-bold">2</span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => { setStep("pick"); setKeyInput(""); setError(""); }}
+                className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors mb-5"
+              >
+                <ChevronLeft size={13} /> Back
+              </button>
+
+              <h2 className="text-xl font-bold text-gray-900 mb-1">Connect {provider.name}</h2>
               <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-                Paste your Stripe secret key below. We use read-only access to pull your revenue data.
+                Paste your {provider.name} API key below. We use read-only access to pull your revenue data.
               </p>
 
               {error && (
@@ -148,10 +221,10 @@ export default function OnboardingPage() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-medium text-gray-500 block mb-1.5">Stripe Secret Key</label>
+                  <label className="text-xs font-medium text-gray-500 block mb-1.5">{provider.name} API Key</label>
                   <input
                     type="password"
-                    placeholder="sk_live_... or sk_test_..."
+                    placeholder={provider.placeholder}
                     value={keyInput}
                     onChange={(e) => setKeyInput(e.target.value.trim())}
                     onKeyDown={(e) => e.key === "Enter" && handleConnect()}
@@ -160,16 +233,11 @@ export default function OnboardingPage() {
                     autoFocus
                   />
                   <p className="text-xs text-gray-400 mt-2 leading-relaxed">
-                    Find it in{" "}
-                    <a
-                      href="https://dashboard.stripe.com/apikeys"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-indigo-500 inline-flex items-center gap-0.5"
-                    >
-                      Stripe → Developers → API keys <ExternalLink size={10} />
+                    Find it in {provider.hint}.{" "}
+                    <a href={provider.hintUrl} target="_blank" rel="noopener noreferrer"
+                      className="text-indigo-500 inline-flex items-center gap-0.5">
+                      Open <ExternalLink size={10} />
                     </a>
-                    . A restricted key with read-only access is ideal.
                   </p>
                 </div>
 
@@ -178,20 +246,17 @@ export default function OnboardingPage() {
                   disabled={saving || !keyInput}
                   className="w-full bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 >
-                  {saving ? (
-                    "Validating…"
-                  ) : (
-                    <>Connect Stripe <ArrowRight size={15} /></>
-                  )}
+                  {saving ? "Validating…" : <>{`Connect ${provider.name}`} <ArrowRight size={15} /></>}
                 </button>
 
                 <p className="text-center text-xs text-gray-400">
-                  You can change this later in{" "}
+                  You can add more providers later in{" "}
                   <a href="/settings" className="text-indigo-400 hover:text-indigo-600">Settings</a>
                 </p>
               </div>
             </div>
-          )}
+          ) : null}
+
         </div>
       </div>
     </main>
