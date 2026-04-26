@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase-admin";
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 
       // Send digest
       await resend.emails.send({
-        from: process.env.RESEND_FROM ?? "RevInt <digest@revint.io>",
+        from: process.env.RESEND_FROM ?? "Revenue Intelligence <digest@revint.io>",
         to: user.email,
         subject: `Your weekly revenue digest · ${metrics.mrrFormatted} MRR`,
         html: buildEmail(user.email, metrics),
@@ -204,7 +204,7 @@ function buildEmail(email: string, m: NonNullable<Awaited<ReturnType<typeof comp
 
     <!-- Header -->
     <tr><td style="background:#4f46e5;border-radius:12px 12px 0 0;padding:28px 32px;">
-      <p style="margin:0;color:#fff;font-weight:700;font-size:17px;letter-spacing:-0.3px;">RevInt</p>
+      <p style="margin:0;color:#fff;font-weight:700;font-size:17px;letter-spacing:-0.3px;">Revenue Intelligence</p>
       <p style="margin:6px 0 0;color:rgba(255,255,255,0.65);font-size:13px;">Weekly digest · ${weekOf}</p>
     </td></tr>
 
@@ -268,7 +268,7 @@ function buildEmail(email: string, m: NonNullable<Awaited<ReturnType<typeof comp
     <!-- Footer -->
     <tr><td style="background:#f1f5f9;border-radius:0 0 12px 12px;padding:20px 32px;text-align:center;">
       <p style="margin:0;font-size:12px;color:#9ca3af;">
-        You're receiving this because you have a RevInt account (${email}).<br>
+        You're receiving this because you have a Revenue Intelligence account (${email}).<br>
         To stop these emails, reply with "unsubscribe".
       </p>
     </td></tr>

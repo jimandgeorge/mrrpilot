@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { ReactNode, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -9,7 +9,8 @@ import { supabase } from "@/lib/supabase";
 export default function ClientLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const isPublic = pathname === "/login" || pathname === "/" || pathname.startsWith("/revenue/");
+  const isPublic = pathname === "/login" || pathname === "/" || pathname === "/demo" || pathname.startsWith("/revenue/");
+  const isAuthPage = pathname === "/login" || pathname === "/";
   const [userEmail, setUserEmail] = useState("");
   const [userInitial, setUserInitial] = useState("?");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -25,7 +26,7 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") router.replace("/");
-      if (event === "SIGNED_IN" && isPublic) router.replace("/dashboard");
+      if (event === "SIGNED_IN" && isAuthPage) router.replace("/dashboard");
       if (session?.user?.email) {
         setUserEmail(session.user.email);
         setUserInitial(session.user.email[0].toUpperCase());
@@ -50,7 +51,7 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
     <>
       {/* Brand */}
       <div className="px-5 py-6 border-b border-gray-100">
-        <p className="text-sm font-bold tracking-tight text-gray-900">RevInt</p>
+        <p className="text-sm font-bold tracking-tight text-gray-900">Revenue Intelligence</p>
         <p className="text-[11px] text-gray-400 mt-0.5">Revenue Intelligence</p>
       </div>
 
@@ -107,7 +108,7 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
         <>
           {/* Mobile top bar */}
           <div className="md:hidden fixed top-0 left-0 right-0 z-20 h-14 bg-white border-b border-gray-100 px-4 flex items-center justify-between shrink-0">
-            <p className="text-sm font-bold tracking-tight text-gray-900">RevInt</p>
+            <p className="text-sm font-bold tracking-tight text-gray-900">Revenue Intelligence</p>
             <button
               onClick={() => setSidebarOpen((o) => !o)}
               className="p-2 text-gray-500 hover:text-gray-900 transition-colors"

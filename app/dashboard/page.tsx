@@ -67,9 +67,15 @@ export default function Home() {
   const [mrrMoM, setMrrMoM] = useState<number | null>(null);
   const [prose, setProse] = useState<{ momentum: string | null; mix: string | null; churn: string | null }>({ momentum: null, mix: null, churn: null });
   const [proseLoading, setProseLoading] = useState(false);
+  const [proseTab, setProseTab] = useState<"momentum" | "mix" | "churn">("momentum");
   const [priority, setPriority] = useState("");
   const [priorityLoading, setPriorityLoading] = useState(false);
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
+  const [emailSent, setEmailSent] = useState<Record<string, boolean>>({});
+  const [sending, setSending] = useState<Record<string, boolean>>({});
+  const [recoveryStats, setRecoveryStats] = useState<{ totalRecovered: number; recoveredThisMonth: number; totalRecoveredCount: number; totalSent: number } | null>(null);
+  const [expansionCandidates, setExpansionCandidates] = useState<{ id: string; email: string; planName: string; mrr: number; monthsAsCustomer: number; totalPaid: number }[]>([]);
+  const [upgradeDrafts, setUpgradeDrafts] = useState<Record<string, { content: string; loading: boolean; open: boolean }>>({});
 
   // Load goal from API (falls back to localStorage for existing users)
   useEffect(() => {
@@ -106,10 +112,10 @@ export default function Home() {
       setBilling(billingData);
       if (billingData.trialExpired) { setLoading(false); setRefreshing(false); return; }
 
-      // Try Stripe first, fall back to Paddle
+      // Try Stripe first, fall back to Paddle, then Revolut
       const suffix = manual ? "?manual=1" : "";
       let data = null;
-      for (const endpoint of [`/api/stripe${suffix}`, `/api/paddle${suffix}`]) {
+      for (const endpoint of [`/api/stripe${suffix}`, `/api/paddle${suffix}`, `/api/revolut${suffix}`]) {
         const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${session?.access_token ?? ""}` } });
         const d = await res.json();
         if (d.rateLimited) {
@@ -132,7 +138,16 @@ export default function Home() {
     setRefreshing(false);
   }
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) return;
+      fetch("/api/recovery-stats", { headers: { Authorization: `Bearer ${session.access_token}` } })
+        .then(r => r.json())
+        .then(d => { if (!d.error) setRecoveryStats(d); })
+        .catch(() => {});
+    });
+  }, []);
 
   // Countdown ticker
   useEffect(() => {
@@ -295,6 +310,43 @@ export default function Home() {
       }
     } catch {
       setEmailDrafts(prev => ({ ...prev, [customerId]: { content: "Failed to generate email.", loading: false, open: true } }));
+    }
+  }
+
+  async function sendRecoveryEmail(customerId: string, email: string, body: string) {
+    setSending(prev => ({ ...prev, [customerId]: true }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/send-recovery-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
+        body: JSON.stringify({ customerEmail: email, subject: "Just checking in", body }),
+      });
+      if (res.ok) setEmailSent(prev => ({ ...prev, [customerId]: true }));
+    } catch {}
+    setSending(prev => ({ ...prev, [customerId]: false }));
+  }
+
+  async function draftUpgrade(c: { id: string; email: string; planName: string; mrr: number; monthsAsCustomer: number; totalPaid: number }) {
+    setUpgradeDrafts(prev => ({ ...prev, [c.id]: { content: "", loading: true, open: true } }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/draft-upgrade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
+        body: JSON.stringify({ email: c.email, planName: c.planName, mrr: c.mrr, monthsAsCustomer: c.monthsAsCustomer, totalPaid: c.totalPaid }),
+      });
+      if (!res.ok || !res.body) { setUpgradeDrafts(prev => ({ ...prev, [c.id]: { content: "Failed to generate email.", loading: false, open: true } })); return; }
+      setUpgradeDrafts(prev => ({ ...prev, [c.id]: { ...prev[c.id], loading: false } }));
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        setUpgradeDrafts(prev => ({ ...prev, [c.id]: { ...prev[c.id], content: prev[c.id].content + decoder.decode(value, { stream: true }) } }));
+      }
+    } catch {
+      setUpgradeDrafts(prev => ({ ...prev, [c.id]: { content: "Failed to generate email.", loading: false, open: true } }));
     }
   }
 
@@ -612,6 +664,29 @@ export default function Home() {
       else if (trendDiff < 0) insightList.push({ icon: TrendingDown, text: `Churn down ${churnsLastPeriod.length} → ${churnsThisPeriod.length} vs previous period`, detail: "Retention is improving. Identify what changed and reinforce it.", type: "positive" });
     }
 
+    // Expansion candidates — loyal customers on non-top plans
+    const atRiskIdSet = new Set((data.atRiskSubscriptions || []).map((c: any) => c.id));
+    const maxPlanMrr = Math.max(...Object.values(data.mrrByCustomer || {}).map((c: any) => c.mrr), 0);
+    const candidates = (data.customers || [])
+      .filter((c: any) =>
+        !c.churned &&
+        !atRiskIdSet.has(c.id) &&
+        c.payments >= 6 &&
+        data.mrrByCustomer?.[c.id] &&
+        data.mrrByCustomer[c.id].mrr < maxPlanMrr * 0.85
+      )
+      .map((c: any) => ({
+        id: c.id,
+        email: c.email,
+        planName: data.mrrByCustomer[c.id].planName,
+        mrr: data.mrrByCustomer[c.id].mrr,
+        monthsAsCustomer: Math.round(c.payments),
+        totalPaid: c.total,
+      }))
+      .sort((a: any, b: any) => b.monthsAsCustomer - a.monthsAsCustomer)
+      .slice(0, 3);
+    setExpansionCandidates(candidates);
+
     setMrr(totalMRR);
     setMrrMoM(calcMrrMoM);
     setArpu(calcArpu);
@@ -678,8 +753,8 @@ export default function Home() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] text-center px-6">
         <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mb-4"><Plug size={22} className="text-gray-400" /></div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Connect your Stripe account</h2>
-        <p className="text-sm text-gray-400 mb-6 max-w-xs">Add your Stripe secret key in Settings to start seeing your revenue data.</p>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Connect a payment provider</h2>
+        <p className="text-sm text-gray-400 mb-6 max-w-xs">Add your Stripe, Paddle, or Revolut key in Settings to start seeing your revenue data.</p>
         <a href="/settings" className="bg-indigo-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition-colors">Go to Settings →</a>
       </div>
     );
@@ -729,11 +804,19 @@ export default function Home() {
     );
   }
 
+  function relTime(date: Date): string {
+    const days = Math.floor((Date.now() - date.getTime()) / 86400000);
+    if (days === 0) return "today";
+    if (days === 1) return "yesterday";
+    if (days < 7) return `${days}d ago`;
+    return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  }
+
   const typeConfig = {
-    new:     { label: "New",     border: "border-l-green-400",  pill: "bg-green-50 text-green-700"   },
-    renewal: { label: "Renewal", border: "border-l-blue-300",   pill: "bg-blue-50 text-blue-600"     },
-    upgrade: { label: "Upgrade", border: "border-l-purple-400", pill: "bg-purple-50 text-purple-700" },
-    churn:   { label: "Churned", border: "border-l-red-300",    pill: "bg-red-50 text-red-600"       },
+    new:     { label: "New",     border: "border-l-green-400",  pill: "bg-green-50 text-green-700",   avatar: "bg-green-100 text-green-600"   },
+    renewal: { label: "Renewal", border: "border-l-blue-300",   pill: "bg-blue-50 text-blue-600",     avatar: "bg-blue-100 text-blue-500"     },
+    upgrade: { label: "Upgrade", border: "border-l-purple-400", pill: "bg-purple-50 text-purple-700", avatar: "bg-purple-100 text-purple-600" },
+    churn:   { label: "Churned", border: "border-l-red-300",    pill: "bg-red-50 text-red-600",       avatar: "bg-red-100 text-red-400"       },
   };
 
   const rangeOptions: { key: Range; label: string }[] = [
@@ -751,9 +834,9 @@ export default function Home() {
   const dateStr = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
 
   return (
-    <div className="max-w-3xl mx-auto py-8 px-6 space-y-4">
+    <div className="max-w-6xl mx-auto py-8 px-6 space-y-5">
 
-      {/* Greeting */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold text-gray-900">{greeting}{displayName ? `, ${displayName}` : ""}.</h1>
@@ -775,280 +858,392 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Trial banner */}
+      {/* Trial banners */}
       {billing && billing.status === "trialing" && !billing.trialExpired && (
         <div className={`flex items-center justify-between border rounded-xl px-5 py-3 ${billing.daysLeft <= 3 ? "bg-amber-50 border-amber-100" : "bg-indigo-50 border-indigo-100"}`}>
           <p className={`text-sm ${billing.daysLeft <= 3 ? "text-amber-800" : "text-indigo-800"}`}>
-            {billing.daysLeft === 0
-              ? "Your trial ends today."
-              : `${billing.daysLeft} day${billing.daysLeft !== 1 ? "s" : ""} left in your free trial.`}
+            {billing.daysLeft === 0 ? "Your trial ends today." : `${billing.daysLeft} day${billing.daysLeft !== 1 ? "s" : ""} left in your free trial.`}
           </p>
-          <a href="/upgrade" className={`shrink-0 text-xs font-semibold ml-4 transition-colors ${billing.daysLeft <= 3 ? "text-amber-700 hover:text-amber-900" : "text-indigo-600 hover:text-indigo-800"}`}>
-            Subscribe now →
-          </a>
+          <a href="/upgrade" className={`shrink-0 text-xs font-semibold ml-4 transition-colors ${billing.daysLeft <= 3 ? "text-amber-700 hover:text-amber-900" : "text-indigo-600 hover:text-indigo-800"}`}>Subscribe now →</a>
         </div>
       )}
       {billing?.trialExpired && (
         <div className="flex items-center justify-between bg-red-50 border border-red-100 rounded-xl px-5 py-3">
           <p className="text-sm text-red-800 font-medium">Your trial has ended — subscribe to keep access.</p>
-          <a href="/upgrade" className="shrink-0 text-xs font-semibold text-red-600 hover:text-red-800 ml-4 transition-colors">
-            Subscribe now →
-          </a>
+          <a href="/upgrade" className="shrink-0 text-xs font-semibold text-red-600 hover:text-red-800 ml-4 transition-colors">Subscribe now →</a>
         </div>
       )}
 
-      {/* Briefing — the hero */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-7">
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-[11px] font-semibold text-gray-400 tracking-widest uppercase">Your briefing</p>
-          {commentary && !commentaryLoading && (
-            <button
-              onClick={() => fetchCommentary({
-                mrr, projectedMrr, periodChange, growthRate, churnRate, churnRevenue,
-                churnCount: churnTrend.thisPeriod, newCustomers: newCustomerCount, range, breakdown,
-                churnTrend: { thisPeriod: churnTrend.thisPeriod, lastPeriod: churnTrend.lastPeriod },
-                churnRisk: churnRisk.map(c => ({ email: c.email, daysPastDue: c.daysPastDue, mrr: c.mrr })),
-              })}
-              className="text-xs text-gray-300 hover:text-indigo-500 transition-colors flex items-center gap-1"
-            >
-              <RefreshCw size={11} /> Refresh
-            </button>
-          )}
-        </div>
-        {(priorityLoading || priority) && (
-          <div className="mb-5 bg-indigo-50 border-l-4 border-indigo-500 rounded-r-xl px-4 py-3">
-            <p className="text-[10px] font-semibold text-indigo-400 uppercase tracking-widest mb-1">Today&apos;s priority</p>
-            {priorityLoading ? (
-              <div className="h-4 bg-indigo-100 rounded w-3/4 animate-pulse" />
-            ) : (
-              <p className="text-sm font-medium text-indigo-900">{priority}</p>
-            )}
-          </div>
-        )}
-
-        {commentaryLoading ? (
-          <div className="space-y-3 animate-pulse">
-            <p className="text-xs text-gray-400 mb-4">Analysing your revenue…</p>
-            <div className="h-5 bg-gray-100 rounded-lg w-full" />
-            <div className="h-5 bg-gray-100 rounded-lg w-11/12" />
-            <div className="h-5 bg-gray-100 rounded-lg w-4/5" />
-            <div className="h-5 bg-gray-100 rounded-lg w-3/5" />
-          </div>
-        ) : commentary ? (
-          <p className="text-[17px] leading-relaxed text-gray-800">{commentary}</p>
-        ) : null}
-
-        {/* Chat thread */}
-        {chatMessages.length > 0 && (
-          <div ref={chatScrollRef} className="mt-6 space-y-4 border-t border-gray-100 pt-5 max-h-72 overflow-y-auto">
-            {chatMessages.map((msg, i) => (
-              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                  msg.role === "user"
-                    ? "bg-indigo-600 text-white"
-                    : "text-gray-800"
-                }`}>
-                  {msg.content}
-                  {msg.role === "assistant" && chatStreaming && i === chatMessages.length - 1 && (
-                    <span className="inline-block w-1 h-3.5 bg-gray-400 ml-0.5 animate-pulse rounded-sm" />
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Chat input */}
-        <form onSubmit={sendChat} className="mt-4 flex gap-2">
-          <input
-            type="text"
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            placeholder="Who should I reach out to today?"
-            disabled={chatStreaming}
-            className="flex-1 text-sm border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:opacity-50 placeholder:text-gray-300"
-          />
-          <button
-            type="submit"
-            disabled={!chatInput.trim() || chatStreaming}
-            className="text-sm font-medium bg-indigo-600 text-white px-4 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-40"
-          >
-            Ask
-          </button>
-        </form>
-        {chatMessages.length === 0 && !chatStreaming && suggestedQuestions.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-2">
-            {suggestedQuestions.map((q) => (
-              <button key={q} onClick={() => setChatInput(q)}
-                className="text-xs text-gray-400 hover:text-indigo-600 border border-gray-100 hover:border-indigo-200 px-3 py-1.5 rounded-full transition-colors">
-                {q}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Urgent callouts — conversational */}
-      {pastDue.map((inv) => (
-        <div key={inv.id} className="flex items-center justify-between bg-red-50 border border-red-100 rounded-xl px-5 py-3.5">
-          <p className="text-sm text-red-800 leading-relaxed">
-            <span className="font-semibold">{inv.email}</span> has a payment {inv.daysOverdue} day{inv.daysOverdue !== 1 ? "s" : ""} overdue — £{(inv.amount / 100).toFixed(0)} at risk.
-          </p>
-          {inv.hostedUrl && (
-            <a href={inv.hostedUrl} target="_blank" rel="noopener noreferrer"
-              className="shrink-0 text-xs font-semibold text-red-500 hover:text-red-700 ml-4 transition-colors">
-              Retry payment →
-            </a>
-          )}
-        </div>
-      ))}
-      {churnRisk.map((c) => {
-        const draft = emailDrafts[c.id];
-        const planName = c.planName || (rawData?.mrrByCustomer?.[c.id]?.planName) || "Unknown";
+      {/* ROI callout */}
+      {recoveryStats && recoveryStats.totalRecovered > 0 && (() => {
+        const recovered = Math.round(recoveryStats.totalRecovered / 100);
+        const multiplier = Math.round(recovered / 29);
         return (
-          <div key={c.id} className="bg-amber-50 border border-amber-100 rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-3.5">
-              <p className="text-sm text-amber-900 leading-relaxed">
-                <span className="font-semibold">{c.email}</span> subscription is past due · {c.daysPastDue === 0 ? "overdue today" : `${c.daysPastDue} day${c.daysPastDue !== 1 ? "s" : ""} overdue`} — reach out before they cancel.
-              </p>
-              <div className="shrink-0 flex items-center gap-3 ml-4">
-                <button
-                  onClick={() => {
-                    if (draft?.open) {
-                      setEmailDrafts(prev => ({ ...prev, [c.id]: { ...prev[c.id], open: false } }));
-                    } else if (draft?.content) {
-                      setEmailDrafts(prev => ({ ...prev, [c.id]: { ...prev[c.id], open: true } }));
-                    } else {
-                      draftEmail(c.id, c.email, planName, c.mrr, c.daysPastDue);
-                    }
-                  }}
-                  className="text-xs font-semibold text-amber-700 hover:text-amber-900 transition-colors"
-                >
-                  {draft?.loading ? "Writing…" : draft?.open ? "Hide draft" : draft?.content ? "Show draft" : "Draft email →"}
-                </button>
-                <Link href={`/customers/${c.id}`} className="text-xs font-semibold text-amber-600 hover:text-amber-800 transition-colors">View →</Link>
-              </div>
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl px-6 py-5 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-semibold text-green-600 uppercase tracking-widest mb-1">Recovered by Revenue Intelligence</p>
+              <p className="text-3xl font-bold text-green-800 tabular-nums">£{recovered.toLocaleString("en-GB")}</p>
+              <p className="text-xs text-green-500 mt-1">{recoveryStats.totalRecoveredCount} of {recoveryStats.totalSent} invoice{recoveryStats.totalSent !== 1 ? "s" : ""} saved</p>
             </div>
-            {draft?.open && (
-              <div className="border-t border-amber-100 bg-white px-5 py-4">
-                {draft.loading ? (
-                  <div className="space-y-2 animate-pulse">
-                    <div className="h-4 bg-gray-100 rounded w-full" />
-                    <div className="h-4 bg-gray-100 rounded w-11/12" />
-                    <div className="h-4 bg-gray-100 rounded w-4/5" />
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{draft.content}</p>
-                    <div className="flex items-center gap-3 mt-3">
-                      <button
-                        onClick={() => { navigator.clipboard.writeText(draft.content); }}
-                        className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
-                      >
-                        Copy to clipboard
-                      </button>
-                      <button
-                        onClick={() => draftEmail(c.id, c.email, planName, c.mrr, c.daysPastDue)}
-                        className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-                      >
-                        Regenerate
-                      </button>
-                    </div>
-                  </>
-                )}
+            {multiplier >= 1 && (
+              <div className="text-right shrink-0">
+                <p className="text-4xl font-bold text-green-700 tabular-nums">{multiplier}×</p>
+                <p className="text-xs text-green-500 mt-1">your subscription cost</p>
               </div>
             )}
           </div>
         );
-      })}
+      })()}
 
-      {/* Numbers strip */}
-      <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4 flex items-center divide-x divide-gray-100 overflow-x-auto">
-        {[
-          { label: "MRR",         value: `£${(mrr / 100).toLocaleString("en-GB", { maximumFractionDigits: 0 })}`,           sub: `${periodChange >= 0 ? "+" : "−"}£${(Math.abs(periodChange) / 100).toFixed(0)} ${RANGE_LABEL[range].toLowerCase()}` },
-          { label: "ARR",         value: `£${((mrr * 12) / 100).toLocaleString("en-GB", { maximumFractionDigits: 0 })}`,    sub: undefined },
-          { label: "ARPU",        value: `£${(arpu / 100).toLocaleString("en-GB", { maximumFractionDigits: 0 })}`,          sub: undefined },
-          { label: "NRR",         value: nrr !== null ? `${nrr}%` : "—",                                                    color: nrr !== null ? (nrr >= 100 ? "text-green-600" : nrr >= 80 ? "text-amber-500" : "text-red-500") : "text-gray-300" },
-          { label: "Quick Ratio", value: quickRatio !== null ? String(quickRatio) : "—",                                    color: quickRatio !== null ? (quickRatio >= 4 ? "text-green-600" : quickRatio >= 2 ? "text-amber-500" : "text-red-500") : "text-gray-300" },
-        ].map((m, i) => (
-          <div key={i} className="flex-1 min-w-[100px] px-4 first:pl-0 last:pr-0 text-center">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">{m.label}</p>
-            <p className={`text-base font-bold tabular-nums ${m.color ?? "text-gray-900"}`}>{m.value}</p>
-            {m.sub && <p className="text-[11px] text-gray-400 mt-0.5">{m.sub}</p>}
+      {/* Main 2+1 grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+
+        {/* Left column — briefing + at-risk */}
+        <div className="lg:col-span-2 space-y-4">
+
+          {/* Briefing */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-7">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-[11px] font-semibold text-gray-400 tracking-widest uppercase">Your briefing</p>
+              {commentary && !commentaryLoading && (
+                <button
+                  onClick={() => fetchCommentary({
+                    mrr, projectedMrr, periodChange, growthRate, churnRate, churnRevenue,
+                    churnCount: churnTrend.thisPeriod, newCustomers: newCustomerCount, range, breakdown,
+                    churnTrend: { thisPeriod: churnTrend.thisPeriod, lastPeriod: churnTrend.lastPeriod },
+                    churnRisk: churnRisk.map(c => ({ email: c.email, daysPastDue: c.daysPastDue, mrr: c.mrr })),
+                  })}
+                  className="text-xs text-gray-300 hover:text-indigo-500 transition-colors flex items-center gap-1"
+                >
+                  <RefreshCw size={11} /> Refresh
+                </button>
+              )}
+            </div>
+
+            {(priorityLoading || priority) && (
+              <div className="mb-5 bg-indigo-50 border-l-4 border-indigo-500 rounded-r-xl px-4 py-3">
+                <p className="text-[10px] font-semibold text-indigo-400 uppercase tracking-widest mb-1">Today&apos;s priority</p>
+                {priorityLoading ? (
+                  <div className="h-4 bg-indigo-100 rounded w-3/4 animate-pulse" />
+                ) : (
+                  <p className="text-sm font-medium text-indigo-900">{priority}</p>
+                )}
+              </div>
+            )}
+
+            {commentaryLoading ? (
+              <div className="space-y-3 animate-pulse">
+                <p className="text-xs text-gray-400 mb-4">Analysing your revenue…</p>
+                <div className="h-5 bg-gray-100 rounded-lg w-full" />
+                <div className="h-5 bg-gray-100 rounded-lg w-11/12" />
+                <div className="h-5 bg-gray-100 rounded-lg w-4/5" />
+                <div className="h-5 bg-gray-100 rounded-lg w-3/5" />
+              </div>
+            ) : commentary ? (
+              <p className="text-[17px] leading-relaxed text-gray-800">{commentary}</p>
+            ) : null}
+
+            {chatMessages.length > 0 && (
+              <div ref={chatScrollRef} className="mt-6 space-y-4 border-t border-gray-100 pt-5 max-h-72 overflow-y-auto">
+                {chatMessages.map((msg, i) => (
+                  <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${msg.role === "user" ? "bg-indigo-600 text-white" : "text-gray-800"}`}>
+                      {msg.content}
+                      {msg.role === "assistant" && chatStreaming && i === chatMessages.length - 1 && (
+                        <span className="inline-block w-1 h-3.5 bg-gray-400 ml-0.5 animate-pulse rounded-sm" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <form onSubmit={sendChat} className="mt-4 flex gap-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Who should I reach out to today?"
+                disabled={chatStreaming}
+                className="flex-1 text-sm border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:opacity-50 placeholder:text-gray-300"
+              />
+              <button type="submit" disabled={!chatInput.trim() || chatStreaming}
+                className="text-sm font-medium bg-indigo-600 text-white px-4 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-40">
+                Ask
+              </button>
+            </form>
+            {chatMessages.length === 0 && !chatStreaming && suggestedQuestions.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {suggestedQuestions.map((q) => (
+                  <button key={q} onClick={() => setChatInput(q)}
+                    className="text-xs text-gray-400 hover:text-indigo-600 border border-gray-100 hover:border-indigo-200 px-3 py-1.5 rounded-full transition-colors">
+                    {q}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        ))}
+
+          {/* At-risk callouts */}
+          {pastDue.map((inv) => (
+            <div key={inv.id} className="flex items-center justify-between bg-red-50 border border-red-100 rounded-xl px-5 py-3.5">
+              <p className="text-sm text-red-800 leading-relaxed">
+                <span className="font-semibold">{inv.email}</span> has a payment {inv.daysOverdue} day{inv.daysOverdue !== 1 ? "s" : ""} overdue — £{(inv.amount / 100).toLocaleString("en-GB", { maximumFractionDigits: 2 })} at risk.
+              </p>
+              {inv.hostedUrl && (
+                <a href={inv.hostedUrl} target="_blank" rel="noopener noreferrer"
+                  className="shrink-0 text-xs font-semibold text-red-500 hover:text-red-700 ml-4 transition-colors">
+                  Retry payment →
+                </a>
+              )}
+            </div>
+          ))}
+          {churnRisk.map((c) => {
+            const draft = emailDrafts[c.id];
+            const planName = c.planName || (rawData?.mrrByCustomer?.[c.id]?.planName) || "Unknown";
+            return (
+              <div key={c.id} className="bg-amber-50 border border-amber-100 rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-3.5">
+                  <p className="text-sm text-amber-900 leading-relaxed">
+                    <span className="font-semibold">{c.email}</span> subscription is past due · {c.daysPastDue === 0 ? "overdue today" : `${c.daysPastDue} day${c.daysPastDue !== 1 ? "s" : ""} overdue`} — reach out before they cancel.
+                  </p>
+                  <div className="shrink-0 flex items-center gap-3 ml-4">
+                    <button
+                      onClick={() => {
+                        if (draft?.open) {
+                          setEmailDrafts(prev => ({ ...prev, [c.id]: { ...prev[c.id], open: false } }));
+                        } else if (draft?.content) {
+                          setEmailDrafts(prev => ({ ...prev, [c.id]: { ...prev[c.id], open: true } }));
+                        } else {
+                          draftEmail(c.id, c.email, planName, c.mrr, c.daysPastDue);
+                        }
+                      }}
+                      className="text-xs font-semibold text-amber-700 hover:text-amber-900 transition-colors"
+                    >
+                      {draft?.loading ? "Writing…" : draft?.open ? "Hide draft" : draft?.content ? "Show draft" : "Draft email →"}
+                    </button>
+                    <Link href={`/customers/${c.id}`} className="text-xs font-semibold text-amber-600 hover:text-amber-800 transition-colors">View →</Link>
+                  </div>
+                </div>
+                {draft?.open && (
+                  <div className="border-t border-amber-100 bg-white px-5 py-4">
+                    {draft.loading ? (
+                      <div className="space-y-2 animate-pulse">
+                        <div className="h-4 bg-gray-100 rounded w-full" />
+                        <div className="h-4 bg-gray-100 rounded w-11/12" />
+                        <div className="h-4 bg-gray-100 rounded w-4/5" />
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{draft.content}</p>
+                        <div className="flex items-center gap-3 mt-3">
+                          <button
+                            onClick={() => sendRecoveryEmail(c.id, c.email, draft.content)}
+                            disabled={sending[c.id] || emailSent[c.id]}
+                            className={`text-xs font-semibold transition-colors disabled:opacity-50 ${emailSent[c.id] ? "text-green-600" : "text-indigo-600 hover:text-indigo-800"}`}
+                          >
+                            {sending[c.id] ? "Sending…" : emailSent[c.id] ? "Sent ✓" : "Send now →"}
+                          </button>
+                          <button onClick={() => { navigator.clipboard.writeText(draft.content); }}
+                            className="text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors">
+                            Copy
+                          </button>
+                          <button onClick={() => draftEmail(c.id, c.email, planName, c.mrr, c.daysPastDue)}
+                            className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                            Regenerate
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Expansion opportunities */}
+          {expansionCandidates.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest px-1">Expansion opportunities</p>
+              {expansionCandidates.map((c) => {
+                const draft = upgradeDrafts[c.id];
+                return (
+                  <div key={c.id} className="bg-indigo-50 border border-indigo-100 rounded-xl overflow-hidden">
+                    <div className="flex items-center justify-between px-5 py-3.5">
+                      <p className="text-sm text-indigo-900 leading-relaxed">
+                        <span className="font-semibold">{c.email}</span> · {c.monthsAsCustomer} months on {c.planName} — loyal customer, potential upgrade.
+                      </p>
+                      <div className="shrink-0 flex items-center gap-3 ml-4">
+                        <button
+                          onClick={() => {
+                            if (draft?.open) setUpgradeDrafts(prev => ({ ...prev, [c.id]: { ...prev[c.id], open: false } }));
+                            else if (draft?.content) setUpgradeDrafts(prev => ({ ...prev, [c.id]: { ...prev[c.id], open: true } }));
+                            else draftUpgrade(c);
+                          }}
+                          className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+                        >
+                          {draft?.loading ? "Writing…" : draft?.open ? "Hide pitch" : draft?.content ? "Show pitch" : "Draft pitch →"}
+                        </button>
+                        <Link href={`/customers/${c.id}`} className="text-xs font-semibold text-indigo-500 hover:text-indigo-700 transition-colors">View →</Link>
+                      </div>
+                    </div>
+                    {draft?.open && (
+                      <div className="border-t border-indigo-100 bg-white px-5 py-4">
+                        {draft.loading ? (
+                          <div className="space-y-2 animate-pulse">
+                            <div className="h-4 bg-gray-100 rounded w-full" />
+                            <div className="h-4 bg-gray-100 rounded w-11/12" />
+                            <div className="h-4 bg-gray-100 rounded w-4/5" />
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{draft.content}</p>
+                            <div className="flex items-center gap-3 mt-3">
+                              <button
+                                onClick={() => sendRecoveryEmail(c.id, c.email, draft.content)}
+                                disabled={sending[c.id] || emailSent[c.id]}
+                                className={`text-xs font-semibold transition-colors disabled:opacity-50 ${emailSent[c.id] ? "text-green-600" : "text-indigo-600 hover:text-indigo-800"}`}
+                              >
+                                {sending[c.id] ? "Sending…" : emailSent[c.id] ? "Sent ✓" : "Send now →"}
+                              </button>
+                              <button onClick={() => navigator.clipboard.writeText(draft.content)} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Copy</button>
+                              <button onClick={() => draftUpgrade(c)} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Regenerate</button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+        </div>
+
+        {/* Right column — numbers + goal */}
+        <div className="space-y-4">
+
+          {/* MRR hero */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-5">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">MRR</p>
+            <div className="flex items-end gap-2">
+              <p className="text-3xl font-bold text-gray-900 tabular-nums">
+                £{(mrr / 100).toLocaleString("en-GB", { maximumFractionDigits: 2 })}
+              </p>
+              {mrrMoM !== null && (
+                <span className={`text-xs font-semibold mb-1 ${mrrMoM >= 0 ? "text-green-600" : "text-red-500"}`}>
+                  {mrrMoM >= 0 ? "+" : ""}{mrrMoM}% MoM
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-400 mt-1">
+              {periodChange >= 0 ? "+" : "−"}£{(Math.abs(periodChange) / 100).toLocaleString("en-GB", { maximumFractionDigits: 2 })} {RANGE_LABEL[range].toLowerCase()}
+            </p>
+          </div>
+
+          {/* Metrics grid */}
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: "ARR",         value: `£${((mrr * 12) / 100).toLocaleString("en-GB", { maximumFractionDigits: 2 })}`,  color: "text-gray-900" },
+              { label: "ARPU",        value: `£${(arpu / 100).toLocaleString("en-GB", { maximumFractionDigits: 2 })}`,         color: "text-gray-900" },
+              { label: "NRR",         value: nrr !== null ? `${nrr}%` : "—",  color: nrr !== null ? (nrr >= 100 ? "text-green-600" : nrr >= 80 ? "text-amber-500" : "text-red-500") : "text-gray-300" },
+              { label: "Quick Ratio", value: quickRatio !== null ? String(quickRatio) : "—", color: quickRatio !== null ? (quickRatio >= 4 ? "text-green-600" : quickRatio >= 2 ? "text-amber-500" : "text-red-500") : "text-gray-300" },
+            ].map((m) => (
+              <div key={m.label} className="bg-white rounded-xl border border-gray-200 px-4 py-3">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">{m.label}</p>
+                <p className={`text-lg font-bold tabular-nums ${m.color}`}>{m.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* MRR goal */}
+          {(mrrGoal > 0 || editingGoal) && !editingGoal && (
+            <div className="bg-white rounded-xl border border-gray-200 px-5 py-4">
+              <div className="flex justify-between items-center text-xs text-gray-400 mb-2">
+                <span>Goal: £{(mrrGoal / 100).toLocaleString("en-GB", { maximumFractionDigits: 2 })}{onTrack && <span className="ml-2 text-green-600 font-medium">· On track ✓</span>}</span>
+                <span className={`font-medium ${goalPct >= 100 ? "text-green-600" : "text-gray-500"}`}>{goalPct.toFixed(0)}%</span>
+              </div>
+              <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all duration-500 ${goalPct >= 100 ? "bg-green-500" : "bg-indigo-500"}`} style={{ width: `${goalPct}%` }} />
+              </div>
+              <button onClick={() => { setEditingGoal(true); setGoalInput(String(mrrGoal / 100)); }} className="mt-2 text-xs text-gray-300 hover:text-indigo-500 transition-colors">Edit goal</button>
+            </div>
+          )}
+          {editingGoal && (
+            <div className="bg-white rounded-xl border border-gray-200 px-5 py-4 flex gap-2">
+              <input type="number" placeholder="MRR goal in £" value={goalInput} onChange={(e) => setGoalInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") saveGoal(); if (e.key === "Escape") { setEditingGoal(false); setGoalInput(""); } }}
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" autoFocus />
+              <button onClick={saveGoal} className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700">Save</button>
+              {mrrGoal > 0 && <button onClick={async () => { setMrrGoal(0); setEditingGoal(false); const { data: { session } } = await supabase.auth.getSession(); fetch("/api/user/goal", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` }, body: JSON.stringify({ mrr_goal: 0 }) }).catch(() => {}); }} className="text-xs text-red-400 hover:text-red-600 px-2">Remove</button>}
+              <button onClick={() => { setEditingGoal(false); setGoalInput(""); }} className="text-xs text-gray-400 px-2">✕</button>
+            </div>
+          )}
+          {!mrrGoal && !editingGoal && (
+            <button onClick={() => setEditingGoal(true)} className="text-xs text-gray-300 hover:text-indigo-500 transition-colors pl-1">+ Set MRR goal</button>
+          )}
+
+        </div>
       </div>
 
-      {/* MRR goal */}
-      {(mrrGoal > 0 || editingGoal) && !editingGoal && (
-        <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4">
-          <div className="flex justify-between items-center text-xs text-gray-400 mb-2">
-            <span>MRR goal: £{(mrrGoal / 100).toLocaleString("en-GB", { maximumFractionDigits: 0 })}{onTrack && <span className="ml-2 text-green-600 font-medium">· On track ✓</span>}</span>
-            <span className={`font-medium ${goalPct >= 100 ? "text-green-600" : "text-gray-500"}`}>{goalPct.toFixed(0)}%</span>
+      {/* Prose — single tabbed card */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-6">
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-5 w-fit">
+          {([
+            { key: "momentum" as const, label: "Momentum" },
+            { key: "mix"      as const, label: "Mix"      },
+            { key: "churn"    as const, label: "Churn"    },
+          ]).map(({ key, label }) => (
+            <button key={key} onClick={() => setProseTab(key)}
+              className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-colors ${proseTab === key ? "bg-white shadow-sm text-gray-900" : "text-gray-400 hover:text-gray-600"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        {proseLoading ? (
+          <div className="space-y-2.5 animate-pulse">
+            <div className="h-4 bg-gray-100 rounded w-full" />
+            <div className="h-4 bg-gray-100 rounded w-10/12" />
+            <div className="h-4 bg-gray-100 rounded w-7/12" />
           </div>
-          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div className={`h-full rounded-full transition-all duration-500 ${goalPct >= 100 ? "bg-green-500" : "bg-indigo-500"}`} style={{ width: `${goalPct}%` }} />
-          </div>
-          <button onClick={() => { setEditingGoal(true); setGoalInput(String(mrrGoal / 100)); }} className="mt-2 text-xs text-gray-300 hover:text-indigo-500 transition-colors">Edit goal</button>
-        </div>
-      )}
-      {editingGoal && (
-        <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4 flex gap-2">
-          <input type="number" placeholder="MRR goal in £" value={goalInput} onChange={(e) => setGoalInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") saveGoal(); if (e.key === "Escape") { setEditingGoal(false); setGoalInput(""); } }}
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" autoFocus />
-          <button onClick={saveGoal} className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700">Save</button>
-          {mrrGoal > 0 && <button onClick={async () => { setMrrGoal(0); setEditingGoal(false); const { data: { session } } = await supabase.auth.getSession(); fetch("/api/user/goal", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` }, body: JSON.stringify({ mrr_goal: 0 }) }).catch(() => {}); }} className="text-xs text-red-400 hover:text-red-600 px-2">Remove</button>}
-          <button onClick={() => { setEditingGoal(false); setGoalInput(""); }} className="text-xs text-gray-400 px-2">✕</button>
-        </div>
-      )}
-      {!mrrGoal && !editingGoal && (
-        <button onClick={() => setEditingGoal(true)} className="text-xs text-gray-300 hover:text-indigo-500 transition-colors pl-1">+ Set MRR goal</button>
-      )}
+        ) : prose[proseTab] ? (
+          <p className="text-sm leading-relaxed text-gray-700">{prose[proseTab]}</p>
+        ) : (
+          <p className="text-sm text-gray-300">Analysis unavailable.</p>
+        )}
+      </div>
 
-      {/* Prose sections — replace all charts */}
-      {[
-        { key: "momentum" as const, label: "Revenue momentum" },
-        { key: "mix"      as const, label: "Revenue mix"      },
-        { key: "churn"    as const, label: "Churn"            },
-      ].map(({ key, label }) => (
-        <div key={key} className="bg-white rounded-2xl border border-gray-200 p-7">
-          <p className="text-[11px] font-semibold text-gray-400 tracking-widest uppercase mb-4">{label}</p>
-          {proseLoading ? (
-            <div className="space-y-3 animate-pulse">
-              <div className="h-5 bg-gray-100 rounded-lg w-full" />
-              <div className="h-5 bg-gray-100 rounded-lg w-10/12" />
-              <div className="h-5 bg-gray-100 rounded-lg w-8/12" />
-            </div>
-          ) : prose[key] ? (
-            <p className="text-[17px] leading-relaxed text-gray-800">{prose[key]}</p>
-          ) : (
-            <p className="text-sm text-gray-300">Analysis unavailable.</p>
-          )}
-        </div>
-      ))}
-
-      {/* Activity Feed */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
+      {/* Activity feed */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-6">
         <p className="text-xs font-semibold text-gray-500 mb-5">Recent Activity</p>
         <ul className="space-y-0">
           {events.slice(0, 20).map((event, i) => {
             const cfg = typeConfig[event.type];
-            return (
-              <li key={i} className={`flex items-center gap-4 py-3 pl-3 border-b border-gray-50 last:border-0 border-l-2 ${cfg.border}`}>
+            const initial = (event.email || "?")[0].toUpperCase();
+            const href = event.customerId ? `/customers/${event.customerId}` : null;
+            const Row = (
+              <>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${cfg.avatar}`}>
+                  {initial}
+                </div>
                 <div className="flex-1 min-w-0 flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-800 truncate">{event.email}</span>
                   <span className={`shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded-full ${cfg.pill}`}>{cfg.label}</span>
                 </div>
                 {event.amount > 0 && (
                   <span className={`text-sm font-medium tabular-nums ${event.type === "churn" ? "text-red-400" : "text-gray-700"}`}>
-                    {event.type === "churn" ? "−" : "+"}£{(event.amount / 100).toFixed(2)}
+                    {event.type === "churn" ? "−" : "+"}£{(event.amount / 100).toLocaleString("en-GB", { maximumFractionDigits: 2 })}
                   </span>
                 )}
-                <span className="text-xs text-gray-300 w-16 text-right shrink-0">
-                  {event.date.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                </span>
-              </li>
+                <span className="text-xs text-gray-300 w-16 text-right shrink-0">{relTime(event.date)}</span>
+              </>
+            );
+            const cls = `flex items-center gap-3 py-3 pl-3 border-b border-gray-50 last:border-0 border-l-2 ${cfg.border} rounded-r-lg transition-colors`;
+            return href ? (
+              <li key={i}><Link href={href} className={`${cls} hover:bg-gray-50`}>{Row}</Link></li>
+            ) : (
+              <li key={i} className={cls}>{Row}</li>
             );
           })}
         </ul>

@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -10,6 +11,10 @@ export async function POST(request: NextRequest) {
 
   const { data: { user } } = await supabaseAdmin.auth.getUser(token);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (!checkRateLimit("chat", user.id, 20, 60_000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
 
   const { messages, context } = await request.json();
 
@@ -69,7 +74,7 @@ function buildSystemPrompt(ctx: {
     .map(e => `  - ${e.email}: ${e.type}${e.amount ? ` (${fmt(e.amount)})` : ""} on ${e.date}`)
     .join("\n");
 
-  return `You are a revenue analyst embedded in RevInt, a dashboard for a SaaS founder. Answer questions about their business directly and specifically. Use customer emails when referring to people. Keep answers concise — 1–3 sentences unless the question genuinely needs more. No bullet points unless listing multiple items. No preamble.
+  return `You are a revenue analyst embedded in Revenue Intelligence, a dashboard for a SaaS founder. Answer questions about their business directly and specifically. Use customer emails when referring to people. Keep answers concise — 1–3 sentences unless the question genuinely needs more. No bullet points unless listing multiple items. No preamble.
 
 Current data (${ctx.range} range):
 - MRR: ${fmt(ctx.mrr)} | ARR: ${fmt(ctx.arr)} | ARPU: ${fmt(ctx.arpu)}

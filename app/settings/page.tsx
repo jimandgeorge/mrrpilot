@@ -13,6 +13,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "";
 export default function SettingsPage() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"integrations" | "sharing" | "account">("integrations");
   // Public MRR page state
   const [publicPage, setPublicPage] = useState<PublicPage>(null);
   const [publicOpen, setPublicOpen] = useState(false);
@@ -32,6 +33,14 @@ export default function SettingsPage() {
   const [pwSaving, setPwSaving] = useState(false);
   const [pwError, setPwError] = useState("");
   const [pwSuccess, setPwSuccess] = useState("");
+
+  // Revolut
+  const [revolutConnected, setRevolutConnected] = useState(false);
+  const [revolutSandbox, setRevolutSandbox] = useState(false);
+  const [revolutAddOpen, setRevolutAddOpen] = useState(false);
+  const [revolutNewKey, setRevolutNewKey] = useState("");
+  const [revolutSaving, setRevolutSaving] = useState(false);
+  const [revolutError, setRevolutError] = useState("");
 
   // Paddle
   const [paddleConnected, setPaddleConnected] = useState(false);
@@ -85,8 +94,12 @@ export default function SettingsPage() {
       getToken()
         .then((token) => fetch("/api/paddle/connect", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()))
         .catch(() => null),
-    ]).then(([, publicRes, slackRes, paddleRes]) => {
+      getToken()
+        .then((token) => fetch("/api/revolut/connect", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()))
+        .catch(() => null),
+    ]).then(([, publicRes, slackRes, paddleRes, revolutRes]) => {
       if (paddleRes?.connected) setPaddleConnected(true);
+      if (revolutRes?.connected) { setRevolutConnected(true); setRevolutSandbox(revolutRes.isSandbox); }
       if (publicRes?.page) {
         const p = publicRes.page;
         setPublicPage(p);
@@ -235,6 +248,36 @@ export default function SettingsPage() {
     setSlackOpen(false);
   }
 
+  async function handleRevolutConnect() {
+    setRevolutError("");
+    const key = revolutNewKey.trim();
+    if (!key) return;
+    setRevolutSaving(true);
+    const token = await getToken();
+    const res = await fetch("/api/revolut/connect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ revolutKey: key }),
+    });
+    const data = await res.json();
+    setRevolutSaving(false);
+    if (data.error) {
+      setRevolutError(data.error);
+    } else {
+      setRevolutConnected(true);
+      setRevolutSandbox(data.isSandbox);
+      setRevolutNewKey("");
+      setRevolutAddOpen(false);
+    }
+  }
+
+  async function handleRevolutDisconnect() {
+    const token = await getToken();
+    await fetch("/api/revolut/connect", { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+    setRevolutConnected(false);
+    setRevolutSandbox(false);
+  }
+
   async function handlePaddleConnect() {
     setPaddleError("");
     const key = paddleNewKey.trim();
@@ -272,257 +315,421 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="max-w-xl mx-auto py-10 px-6">
+      <div className="max-w-2xl mx-auto py-10 px-6">
         <div className="h-6 bg-gray-200 rounded w-1/3 mb-4 animate-pulse" />
         <div className="h-32 bg-gray-100 rounded-2xl animate-pulse" />
       </div>
     );
   }
 
+  const tabs = [
+    { id: "integrations" as const, label: "Integrations" },
+    { id: "sharing" as const, label: "Sharing" },
+    { id: "account" as const, label: "Account" },
+  ];
+
   return (
-    <div className="max-w-xl mx-auto py-10 px-6 space-y-8">
+    <div className="max-w-2xl mx-auto py-10 px-6 space-y-6">
 
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-      </div>
+      <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
 
-      {/* Account Card */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
-        <p className="text-sm font-semibold text-gray-800">Account</p>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-gray-400 mb-0.5">Email</p>
-            <p className="text-sm text-gray-700">{accountEmail}</p>
-          </div>
-        </div>
-        {pwSuccess && (
-          <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-4 py-2">{pwSuccess}</p>
-        )}
-        {!pwOpen ? (
+      {/* Tab bar */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+        {tabs.map((t) => (
           <button
-            onClick={() => { setPwOpen(true); setPwSuccess(""); }}
-            className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors"
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            className={`flex-1 text-sm font-medium py-2 rounded-lg transition-colors ${
+              activeTab === t.id
+                ? "bg-white shadow-sm text-gray-900"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
           >
-            Change password
+            {t.label}
           </button>
-        ) : (
-          <div className="border border-gray-100 rounded-xl p-4 space-y-3 bg-gray-50">
-            {pwError && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{pwError}</p>
-            )}
-            <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1.5">New password</label>
-              <input
-                type="password"
-                value={pwNew}
-                onChange={(e) => setPwNew(e.target.value)}
-                autoComplete="new-password"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1.5">Confirm new password</label>
-              <input
-                type="password"
-                value={pwConfirm}
-                onChange={(e) => setPwConfirm(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleChangePassword()}
-                autoComplete="new-password"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
-              />
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleChangePassword}
-                disabled={pwSaving || !pwNew || !pwConfirm}
-                className="flex-1 bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-              >
-                {pwSaving ? "Saving…" : "Update password"}
-              </button>
-              <button
-                onClick={() => { setPwOpen(false); setPwError(""); setPwNew(""); setPwConfirm(""); }}
-                className="px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
+        ))}
       </div>
 
-      {/* Stripe Accounts Card */}
-      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <p className="text-sm font-semibold text-gray-800">Stripe Accounts</p>
-          <button
-            onClick={() => { setAddOpen((o) => !o); setError(""); setSuccess(""); }}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
-          >
-            <Plus size={13} /> Add account
-          </button>
-        </div>
+      {/* ── Integrations tab ── */}
+      {activeTab === "integrations" && (
+        <div className="space-y-4">
 
-        {/* Connection list */}
-        {connections.length === 0 ? (
-          <div className="px-6 py-8 text-center text-sm text-gray-400">No Stripe accounts connected yet.</div>
-        ) : (
-          <ul>
-            {connections.map((conn) => (
-              <li key={conn.id} className="flex items-center gap-3 px-6 py-4 border-b border-gray-50 last:border-0">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-gray-800 truncate">{conn.name}</p>
-                    {conn.isActive && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">
-                        <Star size={9} /> Active
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    Connected {new Date(conn.connected_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {!conn.isActive && (
-                    <button
-                      onClick={() => handleSetActive(conn.id)}
-                      className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors"
-                    >
-                      Set active
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleRemove(conn.id)}
-                    className="text-gray-300 hover:text-red-400 transition-colors"
-                    title="Remove"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {/* Add form */}
-        {addOpen && (
-          <div className="px-6 py-4 border-t border-gray-100 space-y-3 bg-gray-50">
-            {error && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{error}</p>
-            )}
-            <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1.5">Account name</label>
-              <input
-                type="text"
-                placeholder="e.g. Main, US Store"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                autoComplete="off"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1.5">Stripe Secret Key</label>
-              <input
-                type="password"
-                placeholder="sk_live_... or sk_test_..."
-                value={newKey}
-                onChange={(e) => setNewKey(e.target.value.trim())}
-                onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-                autoComplete="off"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              />
-              <p className="text-xs text-gray-400 mt-1.5">
-                Found in your{" "}
-                <span className="text-indigo-500">Stripe Dashboard → Developers → API keys</span>.
-              </p>
-            </div>
-            <div className="flex gap-2">
+          {/* Stripe Accounts — full width */}
+          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <p className="text-sm font-semibold text-gray-800">Stripe Accounts</p>
               <button
-                onClick={handleAdd}
-                disabled={saving || !newKey}
-                className="flex-1 bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                onClick={() => { setAddOpen((o) => !o); setError(""); setSuccess(""); }}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
               >
-                {saving ? "Validating…" : "Connect"}
-              </button>
-              <button
-                onClick={() => { setAddOpen(false); setError(""); }}
-                className="px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                Cancel
+                <Plus size={13} /> Add account
               </button>
             </div>
-          </div>
-        )}
 
-        {success && (
-          <div className="px-6 py-3 border-t border-gray-100">
-            <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-4 py-2">{success}</p>
-          </div>
-        )}
-      </div>
-
-      {/* Paddle Card */}
-      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold text-gray-800">Paddle</p>
-            <p className="text-xs text-gray-400 mt-0.5">Connect Paddle Billing to use RevInt with your Paddle subscriptions.</p>
-          </div>
-          {paddleConnected && (
-            <span className="text-[10px] font-semibold bg-green-50 text-green-600 px-2 py-0.5 rounded-full">Connected</span>
-          )}
-        </div>
-
-        {paddleConnected ? (
-          <div className="px-6 py-4 flex items-center gap-4">
-            <span className="text-xs text-green-600">✓ Paddle account connected</span>
-            <button
-              onClick={handlePaddleDisconnect}
-              className="text-xs text-red-400 hover:text-red-600 transition-colors"
-            >
-              Disconnect
-            </button>
-          </div>
-        ) : (
-          <div className="px-6 py-4">
-            {!paddleAddOpen ? (
-              <button
-                onClick={() => { setPaddleAddOpen(true); setPaddleError(""); }}
-                className="w-full bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                Connect Paddle
-              </button>
+            {connections.length === 0 ? (
+              <div className="px-6 py-8 text-center text-sm text-gray-400">No Stripe accounts connected yet.</div>
             ) : (
-              <div className="space-y-3">
-                {paddleError && (
-                  <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{paddleError}</p>
+              <ul>
+                {connections.map((conn) => (
+                  <li key={conn.id} className="flex items-center gap-3 px-6 py-4 border-b border-gray-50 last:border-0">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-gray-800 truncate">{conn.name}</p>
+                        {conn.isActive && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">
+                            <Star size={9} /> Active
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Connected {new Date(conn.connected_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {!conn.isActive && (
+                        <button
+                          onClick={() => handleSetActive(conn.id)}
+                          className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors"
+                        >
+                          Set active
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleRemove(conn.id)}
+                        className="text-gray-300 hover:text-red-400 transition-colors"
+                        title="Remove"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {addOpen && (
+              <div className="px-6 py-4 border-t border-gray-100 space-y-3 bg-gray-50">
+                {error && (
+                  <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{error}</p>
                 )}
                 <div>
-                  <label className="text-xs font-medium text-gray-500 block mb-1.5">Paddle API Key</label>
+                  <label className="text-xs font-medium text-gray-500 block mb-1.5">Account name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Main, US Store"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    autoComplete="off"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1.5">Stripe Secret Key</label>
                   <input
                     type="password"
-                    placeholder="pdl_live_… or pdl_sdbx_…"
-                    value={paddleNewKey}
-                    onChange={(e) => setPaddleNewKey(e.target.value.trim())}
-                    onKeyDown={(e) => e.key === "Enter" && handlePaddleConnect()}
+                    placeholder="sk_live_... or sk_test_..."
+                    value={newKey}
+                    onChange={(e) => setNewKey(e.target.value.trim())}
+                    onKeyDown={(e) => e.key === "Enter" && handleAdd()}
                     autoComplete="off"
                     className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
                   />
                   <p className="text-xs text-gray-400 mt-1.5">
-                    Found in your <span className="text-indigo-500">Paddle Dashboard → Developer Tools → Authentication</span>.
+                    Found in your <span className="text-indigo-500">Stripe Dashboard → Developers → API keys</span>.
                   </p>
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={handlePaddleConnect}
-                    disabled={paddleSaving || !paddleNewKey}
+                    onClick={handleAdd}
+                    disabled={saving || !newKey}
                     className="flex-1 bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    {paddleSaving ? "Validating…" : "Connect"}
+                    {saving ? "Validating…" : "Connect"}
                   </button>
                   <button
-                    onClick={() => { setPaddleAddOpen(false); setPaddleError(""); }}
+                    onClick={() => { setAddOpen(false); setError(""); }}
+                    className="px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {success && (
+              <div className="px-6 py-3 border-t border-gray-100">
+                <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-4 py-2">{success}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Paddle + Revolut — side by side */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+            {/* Paddle */}
+            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Paddle</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Paddle Billing subscriptions.</p>
+                </div>
+                {paddleConnected && (
+                  <span className="text-[10px] font-semibold bg-green-50 text-green-600 px-2 py-0.5 rounded-full">Connected</span>
+                )}
+              </div>
+
+              {paddleConnected ? (
+                <div className="px-5 py-4 flex items-center gap-4">
+                  <span className="text-xs text-green-600">✓ Connected</span>
+                  <button onClick={handlePaddleDisconnect} className="text-xs text-red-400 hover:text-red-600 transition-colors">Disconnect</button>
+                </div>
+              ) : (
+                <div className="px-5 py-4">
+                  {!paddleAddOpen ? (
+                    <button
+                      onClick={() => { setPaddleAddOpen(true); setPaddleError(""); }}
+                      className="w-full bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                      Connect Paddle
+                    </button>
+                  ) : (
+                    <div className="space-y-3">
+                      {paddleError && (
+                        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{paddleError}</p>
+                      )}
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 block mb-1.5">Paddle API Key</label>
+                        <input
+                          type="password"
+                          placeholder="pdl_live_… or pdl_sdbx_…"
+                          value={paddleNewKey}
+                          onChange={(e) => setPaddleNewKey(e.target.value.trim())}
+                          onKeyDown={(e) => e.key === "Enter" && handlePaddleConnect()}
+                          autoComplete="off"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                        />
+                        <p className="text-xs text-gray-400 mt-1.5">
+                          <span className="text-indigo-500">Developer Tools → Authentication</span>
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handlePaddleConnect}
+                          disabled={paddleSaving || !paddleNewKey}
+                          className="flex-1 bg-indigo-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {paddleSaving ? "Validating…" : "Connect"}
+                        </button>
+                        <button
+                          onClick={() => { setPaddleAddOpen(false); setPaddleError(""); }}
+                          className="px-3 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Revolut */}
+            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Revolut Pay</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Revolut Merchant subscriptions.</p>
+                </div>
+                {revolutConnected && (
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${revolutSandbox ? "bg-amber-50 text-amber-600" : "bg-green-50 text-green-600"}`}>
+                    {revolutSandbox ? "Sandbox" : "Connected"}
+                  </span>
+                )}
+              </div>
+
+              {revolutConnected ? (
+                <div className="px-5 py-4 flex items-center gap-4">
+                  <span className="text-xs text-green-600">✓ {revolutSandbox ? "Sandbox" : "Connected"}</span>
+                  <button onClick={handleRevolutDisconnect} className="text-xs text-red-400 hover:text-red-600 transition-colors">Disconnect</button>
+                </div>
+              ) : (
+                <div className="px-5 py-4">
+                  {!revolutAddOpen ? (
+                    <button
+                      onClick={() => { setRevolutAddOpen(true); setRevolutError(""); }}
+                      className="w-full bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                      Connect Revolut Pay
+                    </button>
+                  ) : (
+                    <div className="space-y-3">
+                      {revolutError && (
+                        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{revolutError}</p>
+                      )}
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 block mb-1.5">Revolut Merchant API Key</label>
+                        <input
+                          type="password"
+                          placeholder="Your Revolut merchant secret key"
+                          value={revolutNewKey}
+                          onChange={(e) => setRevolutNewKey(e.target.value.trim())}
+                          onKeyDown={(e) => e.key === "Enter" && handleRevolutConnect()}
+                          autoComplete="off"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                        />
+                        <p className="text-xs text-gray-400 mt-1.5">
+                          <span className="text-indigo-500">Merchant API → API keys</span>. Sandbox detected automatically.
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleRevolutConnect}
+                          disabled={revolutSaving || !revolutNewKey}
+                          className="flex-1 bg-indigo-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {revolutSaving ? "Validating…" : "Connect"}
+                        </button>
+                        <button
+                          onClick={() => { setRevolutAddOpen(false); setRevolutError(""); }}
+                          className="px-3 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ── Sharing tab ── */}
+      {activeTab === "sharing" && (
+        <div className="space-y-4">
+
+          {/* Public MRR Page */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Globe size={14} className="text-indigo-500" />
+                <p className="text-sm font-semibold text-gray-800">Public MRR Page</p>
+                <span className="text-[10px] font-semibold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">New</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-0.5">
+                A live revenue dashboard you can share publicly — post it on Twitter, send to investors, or embed in your README.
+              </p>
+            </div>
+
+            {publicPage ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    readOnly
+                    value={`${APP_URL}/revenue/${publicPage.slug}`}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-500 bg-gray-50 focus:outline-none"
+                  />
+                  <button
+                    onClick={copyPublicLink}
+                    className="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                  >
+                    {publicCopied ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
+                  </button>
+                  <a
+                    href={`/revenue/${publicPage.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 text-xs font-medium px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-gray-600"
+                  >
+                    View →
+                  </a>
+                </div>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setPublicOpen((o) => !o)}
+                    className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors"
+                  >
+                    {publicOpen ? "Close" : "Edit settings"}
+                  </button>
+                  <button onClick={handleDeletePublicPage} className="text-xs text-red-400 hover:text-red-600 transition-colors">
+                    Remove page
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setPublicOpen(true)}
+                disabled={publicSaving}
+                className="w-full bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              >
+                Create public page
+              </button>
+            )}
+
+            {publicOpen && (
+              <div className="border border-gray-100 rounded-xl p-4 space-y-3 bg-gray-50">
+                {publicError && (
+                  <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{publicError}</p>
+                )}
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1.5">URL slug</label>
+                  <div className="flex items-center">
+                    <span className="text-xs text-gray-400 bg-gray-100 border border-r-0 border-gray-200 px-3 py-2.5 rounded-l-lg">revenueintelligence.co.uk/revenue/</span>
+                    <input
+                      type="text"
+                      placeholder="your-company"
+                      value={publicSlug}
+                      onChange={(e) => setPublicSlug(e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-r-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1.5">Company name</label>
+                  <input
+                    type="text"
+                    placeholder="Acme Inc."
+                    value={publicCompany}
+                    onChange={(e) => setPublicCompany(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1.5">Tagline <span className="font-normal text-gray-300">(optional)</span></label>
+                  <input
+                    type="text"
+                    placeholder="e.g. AI analytics for e-commerce"
+                    value={publicTagline}
+                    onChange={(e) => setPublicTagline(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                  />
+                </div>
+                <div className="flex items-center justify-between py-1">
+                  <div>
+                    <p className="text-sm text-gray-700 font-medium">Hide exact revenue numbers</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Shows growth % instead of £ values.</p>
+                  </div>
+                  <button
+                    role="switch"
+                    aria-checked={publicHideRevenue}
+                    onClick={() => setPublicHideRevenue((v) => !v)}
+                    className={`shrink-0 ml-4 relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${publicHideRevenue ? "bg-indigo-600" : "bg-gray-200"}`}
+                  >
+                    <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${publicHideRevenue ? "translate-x-6" : "translate-x-1"}`} />
+                  </button>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={handleSavePublicPage}
+                    disabled={publicSaving || !publicSlug}
+                    className="flex-1 bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                  >
+                    {publicSaving ? "Saving…" : publicPage ? "Save changes" : "Create page"}
+                  </button>
+                  <button
+                    onClick={() => { setPublicOpen(false); setPublicError(""); }}
                     className="px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors"
                   >
                     Cancel
@@ -531,231 +738,156 @@ export default function SettingsPage() {
               </div>
             )}
           </div>
-        )}
-      </div>
 
-      {/* Public MRR Page Card */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <Globe size={14} className="text-indigo-500" />
-              <p className="text-sm font-semibold text-gray-800">Public MRR Page</p>
-              <span className="text-[10px] font-semibold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">New</span>
-            </div>
-            <p className="text-xs text-gray-400 mt-0.5">
-              A beautiful live revenue dashboard you can share publicly — post it on Twitter, send to investors, or embed in your README.
-            </p>
-          </div>
-        </div>
-
-        {publicPage ? (
-          <div className="space-y-3">
-            {/* Live URL */}
-            <div className="flex items-center gap-2">
-              <input
-                readOnly
-                value={`${APP_URL}/revenue/${publicPage.slug}`}
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-500 bg-gray-50 focus:outline-none"
-              />
-              <button
-                onClick={copyPublicLink}
-                className="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-              >
-                {publicCopied ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
-              </button>
-              <a
-                href={`/revenue/${publicPage.slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 text-xs font-medium px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-gray-600"
-              >
-                View →
-              </a>
-            </div>
-
-            {/* Edit / Delete */}
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setPublicOpen((o) => !o)}
-                className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors"
-              >
-                {publicOpen ? "Close" : "Edit settings"}
-              </button>
-              <button
-                onClick={handleDeletePublicPage}
-                className="text-xs text-red-400 hover:text-red-600 transition-colors"
-              >
-                Remove page
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setPublicOpen(true)}
-            disabled={publicSaving}
-            className="w-full bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-          >
-            Create public page
-          </button>
-        )}
-
-        {/* Edit form */}
-        {publicOpen && (
-          <div className="border border-gray-100 rounded-xl p-4 space-y-3 bg-gray-50">
-            {publicError && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{publicError}</p>
-            )}
+          {/* Slack Alerts */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
             <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1.5">URL slug</label>
-              <div className="flex items-center">
-                <span className="text-xs text-gray-400 bg-gray-100 border border-r-0 border-gray-200 px-3 py-2.5 rounded-l-lg">revenueintelligence.co.uk/revenue/</span>
-                <input
-                  type="text"
-                  placeholder="your-company"
-                  value={publicSlug}
-                  onChange={(e) => setPublicSlug(e.target.value)}
-                  className="flex-1 border border-gray-200 rounded-r-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
-                />
+              <div className="flex items-center gap-2">
+                <Bell size={14} className="text-indigo-500" />
+                <p className="text-sm font-semibold text-gray-800">Slack Alerts</p>
+                {slack?.stripe_webhook_id && (
+                  <span className="text-[10px] font-semibold bg-green-50 text-green-600 px-2 py-0.5 rounded-full">Live</span>
+                )}
               </div>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1.5">Company name</label>
-              <input
-                type="text"
-                placeholder="Acme Inc."
-                value={publicCompany}
-                onChange={(e) => setPublicCompany(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1.5">Tagline <span className="font-normal text-gray-300">(optional)</span></label>
-              <input
-                type="text"
-                placeholder="e.g. AI analytics for e-commerce"
-                value={publicTagline}
-                onChange={(e) => setPublicTagline(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
-              />
-            </div>
-            <div className="flex items-center justify-between py-1">
-              <div>
-                <p className="text-sm text-gray-700 font-medium">Hide exact revenue numbers</p>
-                <p className="text-xs text-gray-400 mt-0.5">Shows growth % instead of £ values — chart shape is still visible.</p>
-              </div>
-              <button
-                role="switch"
-                aria-checked={publicHideRevenue}
-                onClick={() => setPublicHideRevenue((v) => !v)}
-                className={`shrink-0 ml-4 relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${publicHideRevenue ? "bg-indigo-600" : "bg-gray-200"}`}
-              >
-                <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${publicHideRevenue ? "translate-x-6" : "translate-x-1"}`} />
-              </button>
-            </div>
-            <div className="flex gap-2 pt-1">
-              <button
-                onClick={handleSavePublicPage}
-                disabled={publicSaving || !publicSlug}
-                className="flex-1 bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-              >
-                {publicSaving ? "Saving…" : publicPage ? "Save changes" : "Create page"}
-              </button>
-              <button
-                onClick={() => { setPublicOpen(false); setPublicError(""); }}
-                className="px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Slack Alerts Card */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <Bell size={14} className="text-indigo-500" />
-              <p className="text-sm font-semibold text-gray-800">Slack Alerts</p>
-              {slack?.stripe_webhook_id && (
-                <span className="text-[10px] font-semibold bg-green-50 text-green-600 px-2 py-0.5 rounded-full">Live</span>
-              )}
-            </div>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Real-time pings for new customers, cancellations, payments, and failures.
-            </p>
-          </div>
-        </div>
-
-        {slack ? (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 rounded-lg px-4 py-2.5">
-              <span className="text-green-500">✓</span>
-              <span className="text-xs text-gray-500">Connected</span>
-              {!slack.stripe_webhook_id && (
-                <span className="text-xs text-amber-500 ml-2">· Real-time unavailable (restricted key)</span>
-              )}
-            </div>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setSlackOpen((o) => !o)}
-                className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors"
-              >
-                {slackOpen ? "Cancel" : "Update webhook URL"}
-              </button>
-              <button onClick={handleRemoveSlack} className="text-xs text-red-400 hover:text-red-600 transition-colors">
-                Disconnect
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setSlackOpen(true)}
-            className="w-full bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            Connect Slack
-          </button>
-        )}
-
-        {slackOpen && (
-          <div className="border border-gray-100 rounded-xl p-4 space-y-3 bg-gray-50">
-            {slackError && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{slackError}</p>
-            )}
-            <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1.5">Slack Incoming Webhook URL</label>
-              <input
-                type="url"
-                placeholder="https://hooks.slack.com/services/..."
-                value={slackInput}
-                onChange={(e) => setSlackInput(e.target.value.trim())}
-                onKeyDown={(e) => e.key === "Enter" && handleSaveSlack()}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
-              />
-              <p className="text-xs text-gray-400 mt-1.5">
-                Create one in Slack: <span className="text-indigo-500">Apps → Incoming Webhooks → Add to Slack</span>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Real-time pings for new customers, cancellations, payments, and failures.
               </p>
             </div>
-            <div className="flex gap-2">
+
+            {slack ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-4 py-2.5">
+                  <span className="text-green-500">✓</span>
+                  <span className="text-xs text-gray-500">Connected</span>
+                  {!slack.stripe_webhook_id && (
+                    <span className="text-xs text-amber-500 ml-2">· Real-time unavailable (restricted key)</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setSlackOpen((o) => !o)}
+                    className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors"
+                  >
+                    {slackOpen ? "Cancel" : "Update webhook URL"}
+                  </button>
+                  <button onClick={handleRemoveSlack} className="text-xs text-red-400 hover:text-red-600 transition-colors">
+                    Disconnect
+                  </button>
+                </div>
+              </div>
+            ) : (
               <button
-                onClick={handleSaveSlack}
-                disabled={slackSaving || !slackInput}
-                className="flex-1 bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                onClick={() => setSlackOpen(true)}
+                className="w-full bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 transition-colors"
               >
-                {slackSaving ? "Connecting…" : "Save"}
+                Connect Slack
               </button>
-              <button
-                onClick={() => { setSlackOpen(false); setSlackError(""); }}
-                className="px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
+            )}
+
+            {slackOpen && (
+              <div className="border border-gray-100 rounded-xl p-4 space-y-3 bg-gray-50">
+                {slackError && (
+                  <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{slackError}</p>
+                )}
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1.5">Slack Incoming Webhook URL</label>
+                  <input
+                    type="url"
+                    placeholder="https://hooks.slack.com/services/..."
+                    value={slackInput}
+                    onChange={(e) => setSlackInput(e.target.value.trim())}
+                    onKeyDown={(e) => e.key === "Enter" && handleSaveSlack()}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                  />
+                  <p className="text-xs text-gray-400 mt-1.5">
+                    Create one in Slack: <span className="text-indigo-500">Apps → Incoming Webhooks → Add to Slack</span>
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSaveSlack}
+                    disabled={slackSaving || !slackInput}
+                    className="flex-1 bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                  >
+                    {slackSaving ? "Connecting…" : "Save"}
+                  </button>
+                  <button
+                    onClick={() => { setSlackOpen(false); setSlackError(""); }}
+                    className="px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+
+        </div>
+      )}
+
+      {/* ── Account tab ── */}
+      {activeTab === "account" && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
+          <p className="text-sm font-semibold text-gray-800">Account</p>
+          <div>
+            <p className="text-xs text-gray-400 mb-0.5">Email</p>
+            <p className="text-sm text-gray-700">{accountEmail}</p>
+          </div>
+          {pwSuccess && (
+            <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-4 py-2">{pwSuccess}</p>
+          )}
+          {!pwOpen ? (
+            <button
+              onClick={() => { setPwOpen(true); setPwSuccess(""); }}
+              className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors"
+            >
+              Change password
+            </button>
+          ) : (
+            <div className="border border-gray-100 rounded-xl p-4 space-y-3 bg-gray-50">
+              {pwError && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{pwError}</p>
+              )}
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1.5">New password</label>
+                <input
+                  type="password"
+                  value={pwNew}
+                  onChange={(e) => setPwNew(e.target.value)}
+                  autoComplete="new-password"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1.5">Confirm new password</label>
+                <input
+                  type="password"
+                  value={pwConfirm}
+                  onChange={(e) => setPwConfirm(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleChangePassword()}
+                  autoComplete="new-password"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleChangePassword}
+                  disabled={pwSaving || !pwNew || !pwConfirm}
+                  className="flex-1 bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                >
+                  {pwSaving ? "Saving…" : "Update password"}
+                </button>
+                <button
+                  onClick={() => { setPwOpen(false); setPwError(""); setPwNew(""); setPwConfirm(""); }}
+                  className="px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
     </div>
   );

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase-admin";
@@ -67,14 +67,14 @@ export async function POST(request: NextRequest) {
 
         const resend = new Resend(process.env.RESEND_API_KEY);
         const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://revenueintelligence.co.uk";
-        const from = process.env.RESEND_FROM ?? "RevInt <alerts@revenueintelligence.co.uk>";
+        const from = process.env.RESEND_FROM ?? "Revenue Intelligence <alerts@revenueintelligence.co.uk>";
 
         // Notify Brendan
         resend.emails.send({
           from,
           to: "brendan.mcintosh@outlook.com",
           subject: `Cancellation: ${userEmail ?? customerId}`,
-          html: `<p><strong>${userEmail ?? customerId}</strong> just cancelled their RevInt subscription.</p>`,
+          html: `<p><strong>${userEmail ?? customerId}</strong> just cancelled their Revenue Intelligence subscription.</p>`,
         }).catch(() => {});
 
         // Email the user
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
           resend.emails.send({
             from,
             to: userEmail,
-            subject: "You've cancelled your RevInt subscription",
+            subject: "You've cancelled your Revenue Intelligence subscription",
             html: `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -91,10 +91,10 @@ export async function POST(request: NextRequest) {
   <tr><td align="center">
   <table width="520" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;width:100%;">
     <tr><td style="background:#fff;border-radius:12px;padding:40px 32px;">
-      <p style="margin:0 0 6px;font-weight:700;font-size:16px;color:#111827;">RevInt</p>
+      <p style="margin:0 0 6px;font-weight:700;font-size:16px;color:#111827;">Revenue Intelligence</p>
       <h1 style="margin:0 0 16px;font-size:22px;color:#111827;">Sorry to see you go</h1>
       <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.6;">
-        Your RevInt subscription has been cancelled. You'll keep access until the end of your current billing period.
+        Your Revenue Intelligence subscription has been cancelled. You'll keep access until the end of your current billing period.
       </p>
       <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.6;">
         If you cancelled by mistake, or want to come back, you can resubscribe any time — your data will still be there.
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
       </p>
     </td></tr>
     <tr><td style="padding:16px 0;text-align:center;">
-      <p style="margin:0;font-size:12px;color:#9ca3af;">© ${new Date().getFullYear()} RevInt</p>
+      <p style="margin:0;font-size:12px;color:#9ca3af;">© ${new Date().getFullYear()} Revenue Intelligence</p>
     </td></tr>
   </table>
   </td></tr>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { Check, ArrowRight, Clock } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -78,7 +78,7 @@ export default function UpgradePage() {
 
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            {billing?.trialExpired ? "Your trial has ended" : "Subscribe to RevInt"}
+            {billing?.trialExpired ? "Your trial has ended" : "Subscribe to Revenue Intelligence"}
           </h1>
           <p className="text-gray-500 text-sm">
             {isTrialing
@@ -110,7 +110,7 @@ export default function UpgradePage() {
         </div>
 
         <div className="bg-indigo-600 rounded-2xl p-8 text-white mb-4">
-          <p className="text-sm font-semibold text-indigo-200 mb-1">RevInt</p>
+          <p className="text-sm font-semibold text-indigo-200 mb-1">Revenue Intelligence</p>
           <div className="flex items-end gap-2 mb-1">
             <p className="text-4xl font-bold">{plan.price}<span className="text-xl font-normal text-indigo-300">{plan.sub}</span></p>
             {plan.saving && (

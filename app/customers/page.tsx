@@ -34,10 +34,17 @@ export default function CustomersPage() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const token = session?.access_token ?? "";
-      fetch("/api/stripe", { headers: { Authorization: `Bearer ${token}` } })
-        .then((res) => res.json())
+      const fetchProvider = async () => {
+        for (const endpoint of ["/api/stripe", "/api/paddle", "/api/revolut"]) {
+          const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}` } });
+          const d = await res.json();
+          if (!d.notConnected) return d;
+        }
+        return null;
+      };
+      fetchProvider()
         .then((data) => {
-          if (data.notConnected) { setNotConnected(true); setLoading(false); return; }
+          if (!data) { setNotConnected(true); setLoading(false); return; }
           const sorted = (data.customers || []).sort((a: any, b: any) => b.total - a.total);
           const reasonMap: Record<string, string> = {};
           const churnEvents: ChurnEvent[] = data.churnEvents || [];
@@ -85,8 +92,8 @@ export default function CustomersPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] text-center px-6">
         <div className="text-4xl mb-4">🔌</div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Connect your Stripe account</h2>
-        <p className="text-sm text-gray-400 mb-6 max-w-xs">Add your Stripe secret key in Settings to start seeing your customer data.</p>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Connect a payment provider</h2>
+        <p className="text-sm text-gray-400 mb-6 max-w-xs">Add your Stripe, Paddle, or Revolut key in Settings to see your customer data.</p>
         <a href="/settings" className="bg-indigo-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition-colors">Go to Settings →</a>
       </div>
     );

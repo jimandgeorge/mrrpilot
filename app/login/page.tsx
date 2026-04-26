@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import { TrendingUp, ShieldAlert, Sparkles } from "lucide-react";
+import { Mail, ShieldAlert, Sparkles } from "lucide-react";
 
 type Mode = "login" | "signup" | "reset" | "recovery";
 
@@ -108,9 +108,9 @@ export default function LoginPage() {
   }
 
   const features = [
-    { icon: TrendingUp, text: "Live MRR pulled straight from Stripe" },
-    { icon: ShieldAlert, text: "Churn risk alerts before customers leave" },
-    { icon: Sparkles,   text: "AI briefings that explain what's happening" },
+    { icon: ShieldAlert, text: "Failed payments caught the moment they happen" },
+    { icon: Mail,        text: "Recovery email written for you in one click" },
+    { icon: Sparkles,    text: "AI tells you exactly what to do next" },
   ];
 
   return (
@@ -123,15 +123,15 @@ export default function LoginPage() {
           style={{ backgroundImage: "radial-gradient(circle at 25% 25%, white 1px, transparent 1px), radial-gradient(circle at 75% 75%, white 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
 
         <div className="relative">
-          <p className="text-white font-bold text-xl tracking-tight">RevInt</p>
+          <p className="text-white font-bold text-xl tracking-tight">Revenue Intelligence</p>
         </div>
 
         <div className="relative">
           <h1 className="text-4xl font-bold text-white leading-tight mb-4">
-            Know your revenue.<br />Act before you lose it.
+            Recover revenue<br />you&apos;re already losing.
           </h1>
           <p className="text-indigo-200 text-base mb-10 leading-relaxed">
-            Connect Stripe in 30 seconds. See MRR, churn risk, and AI-powered insights in real time.
+            Connect Stripe, Paddle, or Revolut in 30 seconds. Every failed payment, at-risk customer, and recovery opportunity — instantly.
           </p>
           <ul className="space-y-4">
             {features.map(({ icon: Icon, text }) => (
@@ -145,7 +145,7 @@ export default function LoginPage() {
           </ul>
         </div>
 
-        <p className="relative text-indigo-400 text-xs">© {new Date().getFullYear()} RevInt</p>
+        <p className="relative text-indigo-400 text-xs">© {new Date().getFullYear()} Revenue Intelligence</p>
       </div>
 
       {/* Right panel — form */}
@@ -154,8 +154,8 @@ export default function LoginPage() {
 
           {/* Mobile brand */}
           <div className="lg:hidden text-center mb-8">
-            <p className="text-xl font-bold text-gray-900">RevInt</p>
-            <p className="text-sm text-gray-400 mt-1">Revenue Intelligence</p>
+            <p className="text-xl font-bold text-gray-900">Revenue Intelligence</p>
+            <p className="text-sm text-gray-400 mt-1">Revenue Recovery</p>
           </div>
 
           {/* Email confirmed state */}
@@ -206,7 +206,7 @@ export default function LoginPage() {
                 {mode === "login" ? "Welcome back" : "Create your account"}
               </h2>
               <p className="text-sm text-gray-400 mb-6">
-                {mode === "login" ? "Log in to your RevInt dashboard." : "Get started — it's free."}
+                {mode === "login" ? "Log in to your Revenue Intelligence account." : "Find lost revenue in 2 minutes — free."}
               </p>
 
               {/* Login / Signup toggle */}

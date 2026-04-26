@@ -48,13 +48,14 @@ export default function ForecastPage() {
         headers: { Authorization: `Bearer ${session.access_token}` },
       }).then(r => r.json()).catch(() => ({ mrr_goal: 0 }));
 
-      // Stripe data
-      const res = await fetch("/api/stripe", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      const data = await res.json();
-
-      if (data.notConnected) { setNotConnected(true); setLoading(false); return; }
+      // Provider cascade
+      let data = null;
+      for (const endpoint of ["/api/stripe", "/api/paddle", "/api/revolut"]) {
+        const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${session.access_token}` } });
+        const d = await res.json();
+        if (!d.notConnected) { data = d; break; }
+      }
+      if (!data) { setNotConnected(true); setLoading(false); return; }
 
       // Current MRR from active subscriptions
       const mrrEntries = Object.values(data.mrrByCustomer ?? {}) as { mrr: number }[];
@@ -165,7 +166,7 @@ export default function ForecastPage() {
   if (notConnected) {
     return (
       <div className="min-h-[80vh] flex flex-col items-center justify-center px-6 text-center gap-4">
-        <p className="text-gray-500 text-sm">Connect your Stripe account to use forecasting.</p>
+        <p className="text-gray-500 text-sm">Connect Stripe, Paddle, or Revolut in Settings to use forecasting.</p>
         <Link href="/settings" className="text-sm text-indigo-600 hover:underline">Go to Settings →</Link>
       </div>
     );

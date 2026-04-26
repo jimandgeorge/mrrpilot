@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getActiveStripeKey } from "@/lib/get-stripe-key";
 import { normaliseStripeInvoice, normaliseStripeEvent } from "@/lib/providers/stripe-normalise";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
   // Resolve per-user Stripe key — no global fallback
@@ -14,6 +15,10 @@ export async function GET(request: NextRequest) {
 
   const stripeKey = await getActiveStripeKey(user.id);
   if (!stripeKey) return NextResponse.json({ notConnected: true });
+
+  if (!checkRateLimit("stripe-fetch", user.id, 10, 60_000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
 
   // Rate limit manual refreshes to once per 60 seconds
   const isManual = request.nextUrl.searchParams.get("manual") === "1";

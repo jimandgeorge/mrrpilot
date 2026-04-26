@@ -200,7 +200,7 @@ export default async function PublicRevenuePage({ params }: Props) {
           href="/"
           className="text-xs text-gray-400 hover:text-indigo-600 transition-colors flex items-center gap-1.5"
         >
-          Powered by <span className="font-semibold text-gray-600">RevInt</span>
+          Powered by <span className="font-semibold text-gray-600">Revenue Intelligence</span>
         </Link>
       </footer>
 

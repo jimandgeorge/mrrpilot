@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -77,7 +77,7 @@ export default function OnboardingPage() {
         <div className="absolute inset-0 opacity-10"
           style={{ backgroundImage: "radial-gradient(circle at 25% 25%, white 1px, transparent 1px), radial-gradient(circle at 75% 75%, white 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
         <div className="relative">
-          <p className="text-white font-bold text-xl tracking-tight">RevInt</p>
+          <p className="text-white font-bold text-xl tracking-tight">Revenue Intelligence</p>
         </div>
         <div className="relative space-y-6">
           <div>
@@ -85,7 +85,7 @@ export default function OnboardingPage() {
               You're one step<br />away from clarity.
             </h1>
             <p className="text-indigo-200 text-base leading-relaxed">
-              Connect your Stripe account and RevInt will pull your MRR, flag at-risk customers, and brief you every morning.
+              Connect your Stripe account and Revenue Intelligence will pull your MRR, flag at-risk customers, and brief you every morning.
             </p>
           </div>
           <div className="space-y-4">
@@ -101,7 +101,7 @@ export default function OnboardingPage() {
             ))}
           </div>
         </div>
-        <p className="relative text-indigo-400 text-xs">© {new Date().getFullYear()} RevInt</p>
+        <p className="relative text-indigo-400 text-xs">© {new Date().getFullYear()} Revenue Intelligence</p>
       </div>
 
       {/* Right panel */}
@@ -110,7 +110,7 @@ export default function OnboardingPage() {
 
           {/* Mobile brand */}
           <div className="lg:hidden text-center mb-8">
-            <p className="text-xl font-bold text-gray-900">RevInt</p>
+            <p className="text-xl font-bold text-gray-900">Revenue Intelligence</p>
           </div>
 
           {step === "done" ? (

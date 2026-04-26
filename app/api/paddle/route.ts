@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getActivePaddleKey } from "@/lib/get-paddle-key";
 import { paddleToMonthly, normalisePaddleTransaction, normalisePaddleCancellation } from "@/lib/providers/paddle-normalise";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const PADDLE_BASE = "https://api.paddle.com";
 const PADDLE_SANDBOX_BASE = "https://sandbox-api.paddle.com";
@@ -37,6 +38,10 @@ export async function GET(request: NextRequest) {
   const apiKey = await getActivePaddleKey(user.id);
   if (!apiKey) return NextResponse.json({ notConnected: true });
 
+  if (!checkRateLimit("paddle-fetch", user.id, 10, 60_000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   // Rate limit manual refreshes to once per 60 seconds
   const isManual = request.nextUrl.searchParams.get("manual") === "1";
   if (isManual) {
@@ -61,17 +66,24 @@ export async function GET(request: NextRequest) {
   const base = getPaddleBase(apiKey);
 
   try {
-    const [customers, activeSubs, pastDueSubs, pausedSubs, canceledSubs, completedTxns, pastDueTxns] = await Promise.all([
+    const [customers, activeSubs, pastDueSubs, pausedSubs, canceledSubs, completedTxns, billedTxns, readyTxns, pastDueTxns] = await Promise.all([
       fetchAll(base, "/customers", apiKey),
       fetchAll(base, "/subscriptions", apiKey, { status: "active" }),
       fetchAll(base, "/subscriptions", apiKey, { status: "past_due" }),
       fetchAll(base, "/subscriptions", apiKey, { status: "paused" }),
       fetchAll(base, "/subscriptions", apiKey, { status: "canceled" }),
       fetchAll(base, "/transactions", apiKey, { status: "completed" }),
+      fetchAll(base, "/transactions", apiKey, { status: "billed" }),
+      fetchAll(base, "/transactions", apiKey, { status: "ready" }),
       fetchAll(base, "/transactions", apiKey, { status: "past_due" }),
     ]);
 
-    // Customer email map
+    // Combine all payment-stage transactions; deduplicate by id
+    const txnMap = new Map<string, any>();
+    [...completedTxns, ...billedTxns, ...readyTxns].forEach((t) => { if (t.id) txnMap.set(t.id, t); });
+    const allPaymentTxns = Array.from(txnMap.values());
+
+    // Customer email map from the /customers endpoint
     const customerEmailMap: Record<string, string> = {};
     customers.forEach((c: any) => { if (c.id && c.email) customerEmailMap[c.id] = c.email; });
 
@@ -87,21 +99,40 @@ export async function GET(request: NextRequest) {
       const interval = sub.billing_cycle?.interval ?? "month";
       const frequency = sub.billing_cycle?.frequency ?? 1;
       const mrr = paddleToMonthly(unitAmount, interval, frequency);
-      const planName = item?.product?.name ?? item?.price?.description ?? `£${(mrr / 100).toLocaleString("en-GB", { maximumFractionDigits: 0 })}/mo`;
+      const planName = item?.product?.name ?? item?.price?.description ?? `£${(mrr / 100).toLocaleString("en-GB", { maximumFractionDigits: 2 })}/mo`;
       mrrByCustomer[customerId] = { mrr, planName, priceId: item?.price?.id ?? "unknown" };
     });
 
-    // Customer map from transactions
+    // Customer map — built from transactions first
     const customerMap: Record<string, any> = {};
-    completedTxns.forEach((txn: any) => {
+    allPaymentTxns.forEach((txn: any) => {
       const customerId = txn.customer_id;
       if (!customerId) return;
       const total = parseInt(txn.details?.totals?.total ?? "0", 10);
       if (!customerMap[customerId]) {
-        customerMap[customerId] = { id: customerId, email: customerEmailMap[customerId] || "Unknown", total: 0, payments: 0, churned: false };
+        customerMap[customerId] = { id: customerId, email: customerEmailMap[customerId] || "Unknown", total: 0, payments: 0, lastPayment: null, churned: false };
       }
       customerMap[customerId].total += total;
       customerMap[customerId].payments += 1;
+      const txnDate = new Date(txn.billed_at ?? txn.created_at);
+      if (!customerMap[customerId].lastPayment || txnDate > customerMap[customerId].lastPayment) {
+        customerMap[customerId].lastPayment = txnDate;
+      }
+    });
+
+    // Fall back: any active subscription customer not yet in customerMap still gets a record
+    // (happens in sandbox / trial / import scenarios where no transaction exists yet)
+    activeSubs.forEach((sub: any) => {
+      const customerId = sub.customer_id;
+      if (!customerId || customerMap[customerId]) return;
+      customerMap[customerId] = {
+        id: customerId,
+        email: customerEmailMap[customerId] || "Unknown",
+        total: 0,
+        payments: 0,
+        lastPayment: new Date(sub.created_at),
+        churned: false,
+      };
     });
 
     // Mark churned: canceled subscription and no active subscription
@@ -114,8 +145,9 @@ export async function GET(request: NextRequest) {
 
     const customers_out = Object.values(customerMap);
 
-    // Churn events from canceled subscriptions
     const now = Math.floor(Date.now() / 1000);
+
+    // Churn events from canceled subscriptions
     const churnEvents = canceledSubs.map((sub: any) => {
       const customerId = sub.customer_id;
       const email = customerEmailMap[customerId] || "Unknown";
@@ -136,7 +168,7 @@ export async function GET(request: NextRequest) {
       const periodEnd = sub.current_billing_period?.ends_at
         ? Math.floor(new Date(sub.current_billing_period.ends_at).getTime() / 1000) : 0;
       const daysPastDue = periodEnd ? Math.max(0, Math.floor((now - periodEnd) / 86400)) : 0;
-      const planName = item?.product?.name ?? item?.price?.description ?? `£${(mrr / 100).toLocaleString("en-GB", { maximumFractionDigits: 0 })}/mo`;
+      const planName = item?.product?.name ?? item?.price?.description ?? `£${(mrr / 100).toLocaleString("en-GB", { maximumFractionDigits: 2 })}/mo`;
       return { id: customerId, email, mrr, daysPastDue, status: sub.status, planName };
     }).filter((s: any) => s.id);
 
@@ -150,14 +182,37 @@ export async function GET(request: NextRequest) {
       hostedUrl: null,
     }));
 
-    // Normalise transactions and cancellations for the dashboard
-    const sortedTxns = [...completedTxns].sort(
+    // Normalise transactions → invoices for the dashboard activity feed
+    const sortedTxns = [...allPaymentTxns].sort(
       (a, b) => new Date(a.billed_at ?? a.created_at).getTime() - new Date(b.billed_at ?? b.created_at).getTime()
     );
     const seenCustomers = new Set<string>();
     const invoices = sortedTxns.map((txn) =>
       normalisePaddleTransaction(txn, customerEmailMap[txn.customer_id] ?? null, seenCustomers)
     );
+
+    // For customers with subscriptions but no transactions, synthesise a "New customer" event
+    // so they appear in recent activity on the dashboard
+    activeSubs.forEach((sub: any) => {
+      const customerId = sub.customer_id;
+      if (!customerId || seenCustomers.has(customerId)) return;
+      seenCustomers.add(customerId);
+      const item = sub.items?.[0];
+      const unitAmount = parseInt(item?.price?.unit_price?.amount ?? "0", 10) * (item?.quantity ?? 1);
+      const interval = sub.billing_cycle?.interval ?? "month";
+      const frequency = sub.billing_cycle?.frequency ?? 1;
+      const mrr = paddleToMonthly(unitAmount, interval, frequency);
+      invoices.push({
+        id: sub.id,
+        customerId,
+        customerEmail: customerEmailMap[customerId] ?? null,
+        amountPaid: mrr,
+        monthlyAmount: mrr,
+        created: Math.floor(new Date(sub.created_at).getTime() / 1000),
+        billingReason: "subscription_create",
+      });
+    });
+
     const events = canceledSubs.map((sub) =>
       normalisePaddleCancellation(sub, customerEmailMap[sub.customer_id] ?? null)
     );

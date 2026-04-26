@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase-admin";
@@ -31,7 +31,7 @@ function buildEmail(userEmail: string, items: string[], currentMrrFormatted: str
   <tr><td align="center">
   <table width="520" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;width:100%;">
     <tr><td style="background:#fff;border-radius:12px;padding:40px 32px;">
-      <p style="margin:0 0 6px;font-weight:700;font-size:16px;color:#111827;">RevInt</p>
+      <p style="margin:0 0 6px;font-weight:700;font-size:16px;color:#111827;">Revenue Intelligence</p>
       <h1 style="margin:0 0 20px;font-size:20px;color:#111827;">Morning update, ${name}</h1>
       <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
         ${rows}
@@ -45,7 +45,7 @@ function buildEmail(userEmail: string, items: string[], currentMrrFormatted: str
       </a>
     </td></tr>
     <tr><td style="padding:16px 0;text-align:center;">
-      <p style="margin:0;font-size:12px;color:#9ca3af;">© ${new Date().getFullYear()} RevInt · <a href="${process.env.NEXT_PUBLIC_APP_URL ?? "https://revenueintelligence.co.uk"}/settings" style="color:#9ca3af;">settings</a></p>
+      <p style="margin:0;font-size:12px;color:#9ca3af;">© ${new Date().getFullYear()} Revenue Intelligence · <a href="${process.env.NEXT_PUBLIC_APP_URL ?? "https://revenueintelligence.co.uk"}/settings" style="color:#9ca3af;">settings</a></p>
     </td></tr>
   </table>
   </td></tr>
@@ -192,7 +192,7 @@ export async function GET(request: NextRequest) {
       if (items.length === 0) continue;
 
       await resend.emails.send({
-        from: process.env.RESEND_FROM ?? "RevInt <alerts@revenueintelligence.co.uk>",
+        from: process.env.RESEND_FROM ?? "Revenue Intelligence <alerts@revenueintelligence.co.uk>",
         to: user.email,
         subject: items[0].replace(/^[✓✗🎉]\s/, ""),
         html: buildEmail(user.email, items, currentMrrFormatted),

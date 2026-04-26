@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase-admin";
@@ -113,11 +113,11 @@ export async function GET(request: NextRequest) {
             : `Important: final payment notice`
         );
         const draftBody = encodeURIComponent(buildCustomerDraft(nextStep.step, companyName, amountPounds, payLink));
-        const mailtoLink = `mailto:${customerEmail}?subject=${draftSubject}&body=${draftBody}`;
+        const mailtoLink = `mailto:${encodeURIComponent(customerEmail)}?subject=${draftSubject}&body=${draftBody}`;
 
         // Email the founder with the ready-to-send draft
         await resend.emails.send({
-          from: process.env.RESEND_FROM ?? "RevInt <alerts@revenueintelligence.co.uk>",
+          from: process.env.RESEND_FROM ?? "Revenue Intelligence <alerts@revenueintelligence.co.uk>",
           to: user.email,
           subject: `💳 Recovery draft ready — ${customerEmail} · ${amountPounds} (${nextStep.label})`,
           html: buildFounderEmail({ founderEmail: user.email, customerEmail, amountPounds, payLink, mailtoLink, step: nextStep.step, companyName, appUrl }),
@@ -198,7 +198,7 @@ function buildFounderEmail({ founderEmail, customerEmail, amountPounds, payLink,
 
     <tr><td style="background:${urgencyColor};border-radius:12px 12px 0 0;padding:24px 32px;">
       <p style="margin:0;color:#fff;font-weight:700;font-size:16px;">💳 Recovery email ready · ${stepLabel}</p>
-      <p style="margin:4px 0 0;color:rgba(255,255,255,0.75);font-size:12px;">RevInt detected a failed payment — here's a draft to send</p>
+      <p style="margin:4px 0 0;color:rgba(255,255,255,0.75);font-size:12px;">Revenue Intelligence detected a failed payment — here's a draft to send</p>
     </td></tr>
 
     <tr><td style="background:#fff;padding:32px;">
@@ -227,7 +227,7 @@ function buildFounderEmail({ founderEmail, customerEmail, amountPounds, payLink,
     </td></tr>
 
     <tr><td style="background:#f1f5f9;border-radius:0 0 12px 12px;padding:16px 32px;text-align:center;">
-      <p style="margin:0;font-size:12px;color:#9ca3af;">RevInt · <a href="${appUrl}/settings" style="color:#9ca3af;">Manage alerts</a></p>
+      <p style="margin:0;font-size:12px;color:#9ca3af;">Revenue Intelligence · <a href="${appUrl}/settings" style="color:#9ca3af;">Manage alerts</a></p>
     </td></tr>
 
   </table>

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase-admin";
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
       // Send one email per new at-risk customer
       for (const customer of newAtRisk) {
         await resend.emails.send({
-          from: process.env.RESEND_FROM ?? "RevInt <alerts@revenueintelligence.co.uk>",
+          from: process.env.RESEND_FROM ?? "Revenue Intelligence <alerts@revenueintelligence.co.uk>",
           to: user.email,
           subject: `⚠ ${customer.email || customer.customerId} payment failed — reach out today`,
           html: buildAlertEmail(user.email, customer),
@@ -123,7 +123,7 @@ function buildAlertEmail(founderEmail: string, c: { email: string | null; mrr: n
     <!-- Header -->
     <tr><td style="background:#78350f;border-radius:12px 12px 0 0;padding:24px 32px;">
       <p style="margin:0;color:#fef3c7;font-weight:700;font-size:16px;">⚠ Churn Risk Alert</p>
-      <p style="margin:4px 0 0;color:rgba(254,243,199,0.7);font-size:12px;">RevInt · Act today</p>
+      <p style="margin:4px 0 0;color:rgba(254,243,199,0.7);font-size:12px;">Revenue Intelligence · Act today</p>
     </td></tr>
 
     <!-- Body -->
@@ -155,7 +155,7 @@ function buildAlertEmail(founderEmail: string, c: { email: string | null; mrr: n
       </table>
 
       <p style="margin:0 0 24px;font-size:14px;color:#6b7280;line-height:1.6;">
-        A personal email now can save this customer. RevInt can write it for you in one click.
+        A personal email now can save this customer. Revenue Intelligence can write it for you in one click.
       </p>
 
       <a href="${appUrl}/dashboard"
@@ -167,7 +167,7 @@ function buildAlertEmail(founderEmail: string, c: { email: string | null; mrr: n
     <!-- Footer -->
     <tr><td style="background:#f1f5f9;border-radius:0 0 12px 12px;padding:16px 32px;text-align:center;">
       <p style="margin:0;font-size:12px;color:#9ca3af;">
-        RevInt alert for ${founderEmail}. <a href="${appUrl}/settings" style="color:#9ca3af;">Manage alerts</a>
+        Revenue Intelligence alert for ${founderEmail}. <a href="${appUrl}/settings" style="color:#9ca3af;">Manage alerts</a>
       </p>
     </td></tr>
 

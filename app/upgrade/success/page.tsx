@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { CheckCircle2, ArrowRight, Bell, Sparkles, Mail, BarChart2 } from "lucide-react";
@@ -29,7 +29,7 @@ export default function UpgradeSuccessPage() {
   const nextSteps = [
     { icon: BarChart2, title: "Check your dashboard", desc: "Your MRR, ARPU, NRR and 3-month forecast are waiting.", href: "/dashboard" },
     { icon: Bell,      title: "See who's at risk",    desc: "Any customers with failed payments are flagged by name.", href: "/customers" },
-    { icon: Sparkles,  title: "Read your briefing",   desc: "RevInt has already written your first revenue summary.", href: "/dashboard" },
+    { icon: Sparkles,  title: "Read your briefing",   desc: "Revenue Intelligence has already written your first revenue summary.", href: "/dashboard" },
     { icon: Mail,      title: "Draft an outreach email", desc: "Click any at-risk customer to generate a personal email in one click.", href: "/customers" },
   ];
 
@@ -44,7 +44,7 @@ export default function UpgradeSuccessPage() {
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">You're subscribed</h1>
           <p className="text-gray-500 text-sm leading-relaxed">
-            {email ? `Welcome to RevInt, ${email.split("@")[0]}.` : "Welcome to RevInt."}{" "}
+            {email ? `Welcome to Revenue Intelligence, ${email.split("@")[0]}.` : "Welcome to Revenue Intelligence."}{" "}
             {plan === "yearly" ? "Your yearly plan is active." : plan === "monthly" ? "Your monthly plan is active." : ""}
           </p>
         </div>
