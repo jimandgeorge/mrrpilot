@@ -112,10 +112,16 @@ export default function Home() {
       setBilling(billingData);
       if (billingData.trialExpired) { setLoading(false); setRefreshing(false); return; }
 
-      // Try Stripe first, fall back to Paddle, then Revolut
+      // Try preferred provider first, fall back to the others
       const suffix = manual ? "?manual=1" : "";
+      const preferred = localStorage.getItem("revint_active_provider");
+      const baseEndpoints = preferred === "paddle"
+        ? ["/api/paddle", "/api/stripe", "/api/revolut"]
+        : preferred === "revolut"
+        ? ["/api/revolut", "/api/stripe", "/api/paddle"]
+        : ["/api/stripe", "/api/paddle", "/api/revolut"];
       let data = null;
-      for (const endpoint of [`/api/stripe${suffix}`, `/api/paddle${suffix}`, `/api/revolut${suffix}`]) {
+      for (const endpoint of baseEndpoints.map(e => `${e}${suffix}`)) {
         const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${session?.access_token ?? ""}` } });
         const d = await res.json();
         if (d.rateLimited) {

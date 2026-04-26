@@ -49,6 +49,9 @@ export default function SettingsPage() {
   const [paddleSaving, setPaddleSaving] = useState(false);
   const [paddleError, setPaddleError] = useState("");
 
+  // Active provider (for dashboard cascade ordering)
+  const [activeProvider, setActiveProvider] = useState<"stripe" | "paddle" | "revolut" | null>(null);
+
   // Slack
   const [slack, setSlack] = useState<SlackIntegration>(null);
   const [slackInput, setSlackInput] = useState("");
@@ -79,6 +82,8 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
+    setActiveProvider(localStorage.getItem("revint_active_provider") as "stripe" | "paddle" | "revolut" | null);
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) setAccountEmail(session.user.email);
     });
@@ -139,6 +144,11 @@ export default function SettingsPage() {
       setSuccess("Account connected.");
       await loadConnections();
     }
+  }
+
+  function handleSetPrimary(provider: "stripe" | "paddle" | "revolut") {
+    localStorage.setItem("revint_active_provider", provider);
+    setActiveProvider(provider);
   }
 
   async function handleSetActive(id: string) {
@@ -357,13 +367,30 @@ export default function SettingsPage() {
           {/* Stripe Accounts — full width */}
           <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-              <p className="text-sm font-semibold text-gray-800">Stripe Accounts</p>
-              <button
-                onClick={() => { setAddOpen((o) => !o); setError(""); setSuccess(""); }}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
-              >
-                <Plus size={13} /> Add account
-              </button>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-gray-800">Stripe Accounts</p>
+                {(!activeProvider || activeProvider === "stripe") && connections.length > 0 && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">
+                    <Star size={9} /> Primary
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                {activeProvider && activeProvider !== "stripe" && connections.length > 0 && (
+                  <button
+                    onClick={() => handleSetPrimary("stripe")}
+                    className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors"
+                  >
+                    Set as primary
+                  </button>
+                )}
+                <button
+                  onClick={() => { setAddOpen((o) => !o); setError(""); setSuccess(""); }}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+                >
+                  <Plus size={13} /> Add account
+                </button>
+              </div>
             </div>
 
             {connections.length === 0 ? (
@@ -481,7 +508,16 @@ export default function SettingsPage() {
               {paddleConnected ? (
                 <div className="px-5 py-4 flex items-center gap-4">
                   <span className="text-xs text-green-600">✓ Connected</span>
-                  <button onClick={handlePaddleDisconnect} className="text-xs text-red-400 hover:text-red-600 transition-colors">Disconnect</button>
+                  {activeProvider === "paddle" ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">
+                      <Star size={9} /> Primary
+                    </span>
+                  ) : (
+                    <button onClick={() => handleSetPrimary("paddle")} className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors">
+                      Set as primary
+                    </button>
+                  )}
+                  <button onClick={handlePaddleDisconnect} className="text-xs text-red-400 hover:text-red-600 transition-colors ml-auto">Disconnect</button>
                 </div>
               ) : (
                 <div className="px-5 py-4">
@@ -550,7 +586,16 @@ export default function SettingsPage() {
               {revolutConnected ? (
                 <div className="px-5 py-4 flex items-center gap-4">
                   <span className="text-xs text-green-600">✓ {revolutSandbox ? "Sandbox" : "Connected"}</span>
-                  <button onClick={handleRevolutDisconnect} className="text-xs text-red-400 hover:text-red-600 transition-colors">Disconnect</button>
+                  {activeProvider === "revolut" ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">
+                      <Star size={9} /> Primary
+                    </span>
+                  ) : (
+                    <button onClick={() => handleSetPrimary("revolut")} className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors">
+                      Set as primary
+                    </button>
+                  )}
+                  <button onClick={handleRevolutDisconnect} className="text-xs text-red-400 hover:text-red-600 transition-colors ml-auto">Disconnect</button>
                 </div>
               ) : (
                 <div className="px-5 py-4">

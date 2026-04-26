@@ -48,9 +48,15 @@ export default function ForecastPage() {
         headers: { Authorization: `Bearer ${session.access_token}` },
       }).then(r => r.json()).catch(() => ({ mrr_goal: 0 }));
 
-      // Provider cascade
+      // Provider cascade — respects active provider preference
+      const preferred = localStorage.getItem("revint_active_provider");
+      const orderedEndpoints = preferred === "paddle"
+        ? ["/api/paddle", "/api/stripe", "/api/revolut"]
+        : preferred === "revolut"
+        ? ["/api/revolut", "/api/stripe", "/api/paddle"]
+        : ["/api/stripe", "/api/paddle", "/api/revolut"];
       let data = null;
-      for (const endpoint of ["/api/stripe", "/api/paddle", "/api/revolut"]) {
+      for (const endpoint of orderedEndpoints) {
         const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${session.access_token}` } });
         const d = await res.json();
         if (!d.notConnected) { data = d; break; }
