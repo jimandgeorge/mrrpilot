@@ -150,9 +150,9 @@ export default function ForecastPage() {
   if (loading) {
     return (
       <div className="max-w-3xl mx-auto py-10 px-6 space-y-4">
-        <div className="h-7 bg-gray-200 rounded w-1/4 animate-pulse" />
-        <div className="h-4 bg-gray-100 rounded w-1/3 animate-pulse" />
-        <div className="h-64 bg-gray-100 rounded-2xl animate-pulse mt-6" />
+        <div className="h-7 bg-gray-200 dark:bg-gray-700 rounded w-1/4 animate-pulse" />
+        <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded w-1/3 animate-pulse" />
+        <div className="h-64 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse mt-6" />
       </div>
     );
   }
@@ -161,7 +161,7 @@ export default function ForecastPage() {
     return (
       <div className="min-h-[80vh] flex flex-col items-center justify-center px-6 text-center gap-4">
         <Lock size={24} className="text-indigo-400" />
-        <h2 className="text-lg font-semibold text-gray-900">Your trial has ended</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Your trial has ended</h2>
         <Link href="/upgrade" className="bg-indigo-600 text-white text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors">
           Subscribe — £29/mo →
         </Link>
@@ -172,8 +172,8 @@ export default function ForecastPage() {
   if (notConnected) {
     return (
       <div className="min-h-[80vh] flex flex-col items-center justify-center px-6 text-center gap-4">
-        <p className="text-gray-500 text-sm">Connect Stripe, Paddle, or Revolut in Settings to use forecasting.</p>
-        <Link href="/settings" className="text-sm text-indigo-600 hover:underline">Go to Settings →</Link>
+        <p className="text-gray-500 dark:text-gray-400 text-sm">Connect Stripe, Paddle, or Revolut in Settings to use forecasting.</p>
+        <Link href="/settings" className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Go to Settings →</Link>
       </div>
     );
   }
@@ -182,33 +182,33 @@ export default function ForecastPage() {
     <div className="max-w-3xl mx-auto py-8 px-6 space-y-6">
 
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Revenue Forecast</h1>
-        <p className="text-sm text-gray-500 mt-1">Adjust the sliders to model different scenarios and see where your MRR could be in 6 months.</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Revenue Forecast</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Adjust the sliders to model different scenarios and see where your MRR could be in 6 months.</p>
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white border border-gray-200 rounded-2xl p-5">
-          <p className="text-xs text-gray-400 mb-1.5">Current trajectory</p>
-          <p className="text-2xl font-bold text-gray-900">{fmt(baseFinal)}</p>
-          <p className="text-xs text-gray-400 mt-1">MRR in 6 months</p>
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-5">
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5">Current trajectory</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{fmt(baseFinal)}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">MRR in 6 months</p>
         </div>
-        <div className={`rounded-2xl p-5 border transition-colors ${scenarioChanged ? "bg-indigo-600 border-indigo-600" : "bg-white border-gray-200"}`}>
-          <p className={`text-xs mb-1.5 ${scenarioChanged ? "text-indigo-200" : "text-gray-400"}`}>Your scenario</p>
-          <p className={`text-2xl font-bold ${scenarioChanged ? "text-white" : "text-gray-900"}`}>{fmt(scenarioFinal)}</p>
+        <div className={`rounded-2xl p-5 border transition-colors ${scenarioChanged ? "bg-indigo-600 border-indigo-600" : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"}`}>
+          <p className={`text-xs mb-1.5 ${scenarioChanged ? "text-indigo-200" : "text-gray-400 dark:text-gray-500"}`}>Your scenario</p>
+          <p className={`text-2xl font-bold ${scenarioChanged ? "text-white" : "text-gray-900 dark:text-gray-100"}`}>{fmt(scenarioFinal)}</p>
           {scenarioChanged ? (
             <p className={`text-xs mt-1 font-medium ${delta > 0 ? "text-green-300" : delta < 0 ? "text-red-300" : "text-indigo-200"}`}>
               {delta > 0 ? `+${fmt(delta)}` : fmt(delta)} vs base
             </p>
           ) : (
-            <p className="text-xs text-gray-400 mt-1">Adjust sliders below</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Adjust sliders below</p>
           )}
         </div>
       </div>
 
       {/* Goal insight */}
       {(baseMetrics?.mrrGoal ?? 0) > 0 && (
-        <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-sm text-amber-800">
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/50 rounded-xl px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
           <span className="font-semibold">Goal: {fmt(baseMetrics!.mrrGoal)}</span>
           {goalMonthBase !== null
             ? ` — reached in month ${goalMonthBase} on current trajectory.`
@@ -219,8 +219,8 @@ export default function ForecastPage() {
       )}
 
       {/* Chart */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-5">6-Month MRR Projection</p>
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-6">
+        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-5">6-Month MRR Projection</p>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
@@ -241,11 +241,11 @@ export default function ForecastPage() {
           </LineChart>
         </ResponsiveContainer>
         <div className="flex items-center gap-5 mt-3 justify-end">
-          <span className="flex items-center gap-1.5 text-xs text-gray-400">
-            <span className="inline-block w-5 border-t-2 border-dashed border-gray-300" />
+          <span className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
+            <span className="inline-block w-5 border-t-2 border-dashed border-gray-300 dark:border-gray-600" />
             Current trajectory
           </span>
-          <span className="flex items-center gap-1.5 text-xs text-indigo-500">
+          <span className="flex items-center gap-1.5 text-xs text-indigo-500 dark:text-indigo-400">
             <span className="inline-block w-5 border-t-2 border-solid border-indigo-500" />
             Your scenario
           </span>
@@ -253,11 +253,11 @@ export default function ForecastPage() {
       </div>
 
       {/* What-if sliders */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-7">
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 space-y-7">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">What-if scenarios</p>
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">What-if scenarios</p>
           {scenarioChanged && (
-            <button onClick={resetScenario} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+            <button onClick={resetScenario} className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors">
               Reset
             </button>
           )}
@@ -266,8 +266,8 @@ export default function ForecastPage() {
         {/* Add customers per month */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-gray-700">New customers per month</label>
-            <span className="text-sm font-bold text-indigo-600">{addCustomers}</span>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">New customers per month</label>
+            <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{addCustomers}</span>
           </div>
           <input
             type="range" min={0} max={20} step={1}
@@ -275,7 +275,7 @@ export default function ForecastPage() {
             onChange={(e) => setAddCustomers(Number(e.target.value))}
             className="w-full accent-indigo-600 h-1.5"
           />
-          <div className="flex justify-between text-xs text-gray-300 mt-1.5">
+          <div className="flex justify-between text-xs text-gray-300 dark:text-gray-600 mt-1.5">
             <span>0</span><span>20</span>
           </div>
         </div>
@@ -284,18 +284,18 @@ export default function ForecastPage() {
         <div>
           <div className="flex items-center justify-between mb-2">
             <div>
-              <label className="text-sm font-medium text-gray-700">Revenue per new customer</label>
-              <p className="text-xs text-gray-400 mt-0.5">Default is your current ARPU</p>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Revenue per new customer</label>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Default is your current ARPU</p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <span className="text-sm text-gray-400">£</span>
+              <span className="text-sm text-gray-400 dark:text-gray-500">£</span>
               <input
                 type="number" min={1} max={9999}
                 value={pricePerCustomer}
                 onChange={(e) => setPricePerCustomer(Math.max(1, Number(e.target.value)))}
-                className="w-16 text-sm font-bold text-indigo-600 text-right border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                className="w-16 text-sm font-bold text-indigo-600 dark:text-indigo-400 text-right border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-600 bg-white dark:bg-gray-800"
               />
-              <span className="text-sm text-gray-400">/mo</span>
+              <span className="text-sm text-gray-400 dark:text-gray-500">/mo</span>
             </div>
           </div>
         </div>
@@ -303,8 +303,8 @@ export default function ForecastPage() {
         {/* Monthly churn rate */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-gray-700">Monthly churn rate</label>
-            <span className="text-sm font-bold text-indigo-600">{scenarioChurnPct.toFixed(1)}%</span>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Monthly churn rate</label>
+            <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{scenarioChurnPct.toFixed(1)}%</span>
           </div>
           <input
             type="range" min={0} max={20} step={0.5}
@@ -312,9 +312,9 @@ export default function ForecastPage() {
             onChange={(e) => setScenarioChurnPct(Number(e.target.value))}
             className="w-full accent-indigo-600 h-1.5"
           />
-          <div className="flex justify-between text-xs text-gray-300 mt-1.5">
+          <div className="flex justify-between text-xs text-gray-300 dark:text-gray-600 mt-1.5">
             <span>0%</span>
-            <span className="text-gray-400">Current: {baseChurnPct.toFixed(1)}%</span>
+            <span className="text-gray-400 dark:text-gray-500">Current: {baseChurnPct.toFixed(1)}%</span>
             <span>20%</span>
           </div>
         </div>

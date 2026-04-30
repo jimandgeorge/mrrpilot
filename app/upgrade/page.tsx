@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect } from "react";
 import { Check, ArrowRight, Clock } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -59,14 +59,14 @@ export default function UpgradePage() {
   const daysLeft = billing?.daysLeft ?? 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6 py-16">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center px-6 py-16">
       <div className="max-w-sm w-full">
 
         {/* Trial context banner */}
         {isTrialing && (
-          <div className={`flex items-center gap-3 rounded-xl px-4 py-3 mb-6 border ${daysLeft <= 3 ? "bg-amber-50 border-amber-100" : "bg-indigo-50 border-indigo-100"}`}>
+          <div className={`flex items-center gap-3 rounded-xl px-4 py-3 mb-6 border ${daysLeft <= 3 ? "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-900/50" : "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-900/50"}`}>
             <Clock size={14} className={daysLeft <= 3 ? "text-amber-500 shrink-0" : "text-indigo-400 shrink-0"} />
-            <p className={`text-sm font-medium ${daysLeft <= 3 ? "text-amber-800" : "text-indigo-800"}`}>
+            <p className={`text-sm font-medium ${daysLeft <= 3 ? "text-amber-800 dark:text-amber-200" : "text-indigo-800 dark:text-indigo-200"}`}>
               {daysLeft === 0
                 ? "Your trial ends today — subscribe to keep access."
                 : daysLeft === 1
@@ -77,10 +77,10 @@ export default function UpgradePage() {
         )}
 
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
             {billing?.trialExpired ? "Your trial has ended" : "Subscribe to Revenue Intelligence"}
           </h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-gray-500 dark:text-gray-400 text-sm">
             {isTrialing
               ? "Lock in your access before your trial ends. One saved customer pays for months."
               : "One saved customer pays for months of access."}
@@ -89,18 +89,18 @@ export default function UpgradePage() {
 
         {/* Billing toggle */}
         <div className="flex items-center justify-center mb-6">
-          <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
+          <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 gap-1">
             {(["monthly", "yearly"] as const).map((opt) => (
               <button
                 key={opt}
                 onClick={() => setInterval(opt)}
                 className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
-                  interval === opt ? "bg-white text-gray-900 shadow-sm" : "text-gray-400 hover:text-gray-600"
+                  interval === opt ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400"
                 }`}
               >
                 {opt === "monthly" ? "Monthly" : "Yearly"}
                 {opt === "yearly" && (
-                  <span className="ml-1.5 text-[10px] font-bold text-green-600 bg-green-100 px-1.5 py-0.5 rounded-full">
+                  <span className="ml-1.5 text-[10px] font-bold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded-full">
                     −17%
                   </span>
                 )}
@@ -141,9 +141,9 @@ export default function UpgradePage() {
           </button>
         </div>
 
-        <p className="text-center text-xs text-gray-400">Secured by Stripe · Cancel anytime</p>
+        <p className="text-center text-xs text-gray-400 dark:text-gray-500">Secured by Stripe · Cancel anytime</p>
         <div className="text-center mt-4">
-          <Link href="/dashboard" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+          <Link href="/dashboard" className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors">
             Back to dashboard
           </Link>
         </div>
