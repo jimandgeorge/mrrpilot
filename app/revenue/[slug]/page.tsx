@@ -117,15 +117,15 @@ export default async function PublicRevenuePage({ params }: Props) {
   if (!d) notFound();
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen bg-white dark:bg-gray-900 flex flex-col">
 
       {/* Header */}
-      <header className="border-b border-gray-100 px-6 py-4 flex items-center justify-between max-w-3xl mx-auto w-full">
+      <header className="border-b border-gray-100 dark:border-gray-800 px-6 py-4 flex items-center justify-between max-w-3xl mx-auto w-full">
         <div>
-          <p className="text-base font-bold text-gray-900">{d.companyName}</p>
-          {d.tagline && <p className="text-xs text-gray-400 mt-0.5">{d.tagline}</p>}
+          <p className="text-base font-bold text-gray-900 dark:text-gray-100">{d.companyName}</p>
+          {d.tagline && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{d.tagline}</p>}
         </div>
-        <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-400 bg-gray-50 border border-gray-100 px-3 py-1.5 rounded-full">
+        <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 px-3 py-1.5 rounded-full">
           <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
           Live from Stripe
         </span>
@@ -137,22 +137,22 @@ export default async function PublicRevenuePage({ params }: Props) {
         {/* Hero number */}
         <div className="flex items-end gap-4 flex-wrap">
           <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Monthly Recurring Revenue</p>
+            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">Monthly Recurring Revenue</p>
             {d.hideRevenue ? (
-              <p className="text-5xl font-bold text-gray-900 tracking-tight">
+              <p className="text-5xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
                 {d.momPct !== null
-                  ? <>{d.momPct >= 0 ? "+" : ""}{d.momPct}% <span className="text-2xl font-medium text-gray-400">MoM</span></>
+                  ? <>{d.momPct >= 0 ? "+" : ""}{d.momPct}% <span className="text-2xl font-medium text-gray-400 dark:text-gray-500">MoM</span></>
                   : "Growing"}
               </p>
             ) : (
-              <p className="text-5xl font-bold text-gray-900 tracking-tight tabular-nums">
+              <p className="text-5xl font-bold text-gray-900 dark:text-gray-100 tracking-tight tabular-nums">
                 £{d.currentMrr.toLocaleString("en-GB")}
               </p>
             )}
           </div>
           {d.momPct !== null && !d.hideRevenue && (
             <span className={`mb-2 inline-flex items-center text-sm font-semibold px-3 py-1.5 rounded-full ${
-              d.momPct >= 0 ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
+              d.momPct >= 0 ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300" : "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400"
             }`}>
               {d.momPct >= 0 ? "+" : ""}{d.momPct}% MoM
             </span>
@@ -173,20 +173,20 @@ export default async function PublicRevenuePage({ params }: Props) {
             {
               label: "MoM Growth",
               value: d.momPct !== null ? `${d.momPct >= 0 ? "+" : ""}${d.momPct}%` : "—",
-              color: d.momPct !== null ? (d.momPct >= 0 ? "text-green-600" : "text-red-500") : "text-gray-400",
+              color: d.momPct !== null ? (d.momPct >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400") : "text-gray-400 dark:text-gray-500",
             },
           ].map((stat) => (
-            <div key={stat.label} className="bg-gray-50 rounded-2xl px-5 py-4 border border-gray-100">
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{stat.label}</p>
-              <p className={`text-xl font-bold tabular-nums ${stat.color ?? "text-gray-900"}`}>{stat.value}</p>
+            <div key={stat.label} className="bg-gray-50 dark:bg-gray-800 rounded-2xl px-5 py-4 border border-gray-100 dark:border-gray-700">
+              <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">{stat.label}</p>
+              <p className={`text-xl font-bold tabular-nums ${stat.color ?? "text-gray-900 dark:text-gray-100"}`}>{stat.value}</p>
             </div>
           ))}
         </div>
 
         {/* Chart */}
         {d.history.length >= 2 && (
-          <div className="bg-white border border-gray-200 rounded-2xl p-6">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-5">MRR History</p>
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-6">
+            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-5">MRR History</p>
             <MrrChart data={d.history} hideRevenue={d.hideRevenue} />
           </div>
         )}
@@ -194,13 +194,13 @@ export default async function PublicRevenuePage({ params }: Props) {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-gray-100 px-6 py-5 max-w-3xl mx-auto w-full flex items-center justify-between">
-        <p className="text-xs text-gray-400">Updated {d.updatedAt}</p>
+      <footer className="border-t border-gray-100 dark:border-gray-800 px-6 py-5 max-w-3xl mx-auto w-full flex items-center justify-between">
+        <p className="text-xs text-gray-400 dark:text-gray-500">Updated {d.updatedAt}</p>
         <Link
           href="/"
-          className="text-xs text-gray-400 hover:text-indigo-600 transition-colors flex items-center gap-1.5"
+          className="text-xs text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex items-center gap-1.5"
         >
-          Powered by <span className="font-semibold text-gray-600">Revenue Intelligence</span>
+          Powered by <span className="font-semibold text-gray-600 dark:text-gray-400">Revenue Intelligence</span>
         </Link>
       </footer>
 

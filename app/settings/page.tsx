@@ -326,8 +326,8 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="max-w-2xl mx-auto py-10 px-6">
-        <div className="h-6 bg-gray-200 rounded w-1/3 mb-4 animate-pulse" />
-        <div className="h-32 bg-gray-100 rounded-2xl animate-pulse" />
+        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4 animate-pulse" />
+        <div className="h-32 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />
       </div>
     );
   }
@@ -341,18 +341,18 @@ export default function SettingsPage() {
   return (
     <div className="max-w-2xl mx-auto py-10 px-6 space-y-6">
 
-      <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
 
       {/* Tab bar */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+      <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
         {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id)}
             className={`flex-1 text-sm font-medium py-2 rounded-lg transition-colors ${
               activeTab === t.id
-                ? "bg-white shadow-sm text-gray-900"
-                : "text-gray-500 hover:text-gray-700"
+                ? "bg-white dark:bg-gray-900 shadow-sm text-gray-900 dark:text-gray-100"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
             {t.label}
@@ -365,12 +365,12 @@ export default function SettingsPage() {
         <div className="space-y-4">
 
           {/* Stripe Accounts — full width */}
-          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold text-gray-800">Stripe Accounts</p>
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Stripe Accounts</p>
                 {(!activeProvider || activeProvider === "stripe") && connections.length > 0 && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full">
                     <Star size={9} /> Primary
                   </span>
                 )}
@@ -379,14 +379,14 @@ export default function SettingsPage() {
                 {activeProvider && activeProvider !== "stripe" && connections.length > 0 && (
                   <button
                     onClick={() => handleSetPrimary("stripe")}
-                    className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors"
+                    className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 font-medium transition-colors"
                   >
                     Set as primary
                   </button>
                 )}
                 <button
                   onClick={() => { setAddOpen((o) => !o); setError(""); setSuccess(""); }}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 transition-colors"
                 >
                   <Plus size={13} /> Add account
                 </button>
@@ -394,21 +394,21 @@ export default function SettingsPage() {
             </div>
 
             {connections.length === 0 ? (
-              <div className="px-6 py-8 text-center text-sm text-gray-400">No Stripe accounts connected yet.</div>
+              <div className="px-6 py-8 text-center text-sm text-gray-400 dark:text-gray-500">No Stripe accounts connected yet.</div>
             ) : (
               <ul>
                 {connections.map((conn) => (
-                  <li key={conn.id} className="flex items-center gap-3 px-6 py-4 border-b border-gray-50 last:border-0">
+                  <li key={conn.id} className="flex items-center gap-3 px-6 py-4 border-b border-gray-50 dark:border-gray-800 last:border-0">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-gray-800 truncate">{conn.name}</p>
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{conn.name}</p>
                         {conn.isActive && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full">
                             <Star size={9} /> Active
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-400 mt-0.5">
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                         Connected {new Date(conn.connected_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                       </p>
                     </div>
@@ -416,14 +416,14 @@ export default function SettingsPage() {
                       {!conn.isActive && (
                         <button
                           onClick={() => handleSetActive(conn.id)}
-                          className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors"
+                          className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 font-medium transition-colors"
                         >
                           Set active
                         </button>
                       )}
                       <button
                         onClick={() => handleRemove(conn.id)}
-                        className="text-gray-300 hover:text-red-400 transition-colors"
+                        className="text-gray-300 dark:text-gray-600 hover:text-red-400 dark:hover:text-red-500 transition-colors"
                         title="Remove"
                       >
                         <Trash2 size={14} />
@@ -435,23 +435,23 @@ export default function SettingsPage() {
             )}
 
             {addOpen && (
-              <div className="px-6 py-4 border-t border-gray-100 space-y-3 bg-gray-50">
+              <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 space-y-3 bg-gray-50 dark:bg-gray-800">
                 {error && (
-                  <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{error}</p>
+                  <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 rounded-lg px-4 py-2">{error}</p>
                 )}
                 <div>
-                  <label className="text-xs font-medium text-gray-500 block mb-1.5">Account name</label>
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Account name</label>
                   <input
                     type="text"
                     placeholder="e.g. Main, US Store"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     autoComplete="off"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-600 bg-white dark:bg-gray-800"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-500 block mb-1.5">Stripe Secret Key</label>
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Stripe Secret Key</label>
                   <input
                     type="password"
                     placeholder="sk_live_... or sk_test_..."
@@ -459,10 +459,10 @@ export default function SettingsPage() {
                     onChange={(e) => setNewKey(e.target.value.trim())}
                     onKeyDown={(e) => e.key === "Enter" && handleAdd()}
                     autoComplete="off"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-600 bg-white dark:bg-gray-800"
                   />
-                  <p className="text-xs text-gray-400 mt-1.5">
-                    Found in your <span className="text-indigo-500">Stripe Dashboard → Developers → API keys</span>.
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
+                    Found in your <span className="text-indigo-500 dark:text-indigo-400">Stripe Dashboard → Developers → API keys</span>.
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -475,7 +475,7 @@ export default function SettingsPage() {
                   </button>
                   <button
                     onClick={() => { setAddOpen(false); setError(""); }}
-                    className="px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                    className="px-4 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
                   >
                     Cancel
                   </button>
@@ -484,8 +484,8 @@ export default function SettingsPage() {
             )}
 
             {success && (
-              <div className="px-6 py-3 border-t border-gray-100">
-                <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-4 py-2">{success}</p>
+              <div className="px-6 py-3 border-t border-gray-100 dark:border-gray-800">
+                <p className="text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900/50 rounded-lg px-4 py-2">{success}</p>
               </div>
             )}
           </div>
@@ -494,30 +494,30 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
             {/* Paddle */}
-            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-gray-800">Paddle</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Paddle Billing subscriptions.</p>
+                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Paddle</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Paddle Billing subscriptions.</p>
                 </div>
                 {paddleConnected && (
-                  <span className="text-[10px] font-semibold bg-green-50 text-green-600 px-2 py-0.5 rounded-full">Connected</span>
+                  <span className="text-[10px] font-semibold bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full">Connected</span>
                 )}
               </div>
 
               {paddleConnected ? (
                 <div className="px-5 py-4 flex items-center gap-4">
-                  <span className="text-xs text-green-600">✓ Connected</span>
+                  <span className="text-xs text-green-600 dark:text-green-400">✓ Connected</span>
                   {activeProvider === "paddle" ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full">
                       <Star size={9} /> Primary
                     </span>
                   ) : (
-                    <button onClick={() => handleSetPrimary("paddle")} className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors">
+                    <button onClick={() => handleSetPrimary("paddle")} className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 font-medium transition-colors">
                       Set as primary
                     </button>
                   )}
-                  <button onClick={handlePaddleDisconnect} className="text-xs text-red-400 hover:text-red-600 transition-colors ml-auto">Disconnect</button>
+                  <button onClick={handlePaddleDisconnect} className="text-xs text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-400 transition-colors ml-auto">Disconnect</button>
                 </div>
               ) : (
                 <div className="px-5 py-4">
@@ -531,10 +531,10 @@ export default function SettingsPage() {
                   ) : (
                     <div className="space-y-3">
                       {paddleError && (
-                        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{paddleError}</p>
+                        <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 rounded-lg px-3 py-2">{paddleError}</p>
                       )}
                       <div>
-                        <label className="text-xs font-medium text-gray-500 block mb-1.5">Paddle API Key</label>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Paddle API Key</label>
                         <input
                           type="password"
                           placeholder="pdl_live_… or pdl_sdbx_…"
@@ -542,10 +542,10 @@ export default function SettingsPage() {
                           onChange={(e) => setPaddleNewKey(e.target.value.trim())}
                           onKeyDown={(e) => e.key === "Enter" && handlePaddleConnect()}
                           autoComplete="off"
-                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                          className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-600 bg-white dark:bg-gray-800"
                         />
-                        <p className="text-xs text-gray-400 mt-1.5">
-                          <span className="text-indigo-500">Developer Tools → Authentication</span>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
+                          <span className="text-indigo-500 dark:text-indigo-400">Developer Tools → Authentication</span>
                         </p>
                       </div>
                       <div className="flex gap-2">
@@ -558,7 +558,7 @@ export default function SettingsPage() {
                         </button>
                         <button
                           onClick={() => { setPaddleAddOpen(false); setPaddleError(""); }}
-                          className="px-3 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                          className="px-3 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
                         >
                           Cancel
                         </button>
@@ -570,14 +570,14 @@ export default function SettingsPage() {
             </div>
 
             {/* Revolut */}
-            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-gray-800">Revolut Pay</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Revolut Merchant subscriptions.</p>
+                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Revolut Pay</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Revolut Merchant subscriptions.</p>
                 </div>
                 {revolutConnected && (
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${revolutSandbox ? "bg-amber-50 text-amber-600" : "bg-green-50 text-green-600"}`}>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${revolutSandbox ? "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400" : "bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400"}`}>
                     {revolutSandbox ? "Sandbox" : "Connected"}
                   </span>
                 )}
@@ -585,17 +585,17 @@ export default function SettingsPage() {
 
               {revolutConnected ? (
                 <div className="px-5 py-4 flex items-center gap-4">
-                  <span className="text-xs text-green-600">✓ {revolutSandbox ? "Sandbox" : "Connected"}</span>
+                  <span className="text-xs text-green-600 dark:text-green-400">✓ {revolutSandbox ? "Sandbox" : "Connected"}</span>
                   {activeProvider === "revolut" ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full">
                       <Star size={9} /> Primary
                     </span>
                   ) : (
-                    <button onClick={() => handleSetPrimary("revolut")} className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors">
+                    <button onClick={() => handleSetPrimary("revolut")} className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 font-medium transition-colors">
                       Set as primary
                     </button>
                   )}
-                  <button onClick={handleRevolutDisconnect} className="text-xs text-red-400 hover:text-red-600 transition-colors ml-auto">Disconnect</button>
+                  <button onClick={handleRevolutDisconnect} className="text-xs text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-400 transition-colors ml-auto">Disconnect</button>
                 </div>
               ) : (
                 <div className="px-5 py-4">
@@ -609,10 +609,10 @@ export default function SettingsPage() {
                   ) : (
                     <div className="space-y-3">
                       {revolutError && (
-                        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{revolutError}</p>
+                        <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 rounded-lg px-3 py-2">{revolutError}</p>
                       )}
                       <div>
-                        <label className="text-xs font-medium text-gray-500 block mb-1.5">Revolut Merchant API Key</label>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Revolut Merchant API Key</label>
                         <input
                           type="password"
                           placeholder="Your Revolut merchant secret key"
@@ -620,10 +620,10 @@ export default function SettingsPage() {
                           onChange={(e) => setRevolutNewKey(e.target.value.trim())}
                           onKeyDown={(e) => e.key === "Enter" && handleRevolutConnect()}
                           autoComplete="off"
-                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                          className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-600 bg-white dark:bg-gray-800"
                         />
-                        <p className="text-xs text-gray-400 mt-1.5">
-                          <span className="text-indigo-500">Merchant API → API keys</span>. Sandbox detected automatically.
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
+                          <span className="text-indigo-500 dark:text-indigo-400">Merchant API → API keys</span>. Sandbox detected automatically.
                         </p>
                       </div>
                       <div className="flex gap-2">
@@ -636,7 +636,7 @@ export default function SettingsPage() {
                         </button>
                         <button
                           onClick={() => { setRevolutAddOpen(false); setRevolutError(""); }}
-                          className="px-3 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                          className="px-3 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
                         >
                           Cancel
                         </button>
@@ -656,14 +656,14 @@ export default function SettingsPage() {
         <div className="space-y-4">
 
           {/* Public MRR Page */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 space-y-4">
             <div>
               <div className="flex items-center gap-2">
-                <Globe size={14} className="text-indigo-500" />
-                <p className="text-sm font-semibold text-gray-800">Public MRR Page</p>
-                <span className="text-[10px] font-semibold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">New</span>
+                <Globe size={14} className="text-indigo-500 dark:text-indigo-400" />
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Public MRR Page</p>
+                <span className="text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full">New</span>
               </div>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                 A live revenue dashboard you can share publicly — post it on Twitter, send to investors, or embed in your README.
               </p>
             </div>
@@ -674,11 +674,11 @@ export default function SettingsPage() {
                   <input
                     readOnly
                     value={`${APP_URL}/revenue/${publicPage.slug}`}
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-500 bg-gray-50 focus:outline-none"
+                    className="flex-1 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 focus:outline-none"
                   />
                   <button
                     onClick={copyPublicLink}
-                    className="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                    className="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-400"
                   >
                     {publicCopied ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
                   </button>
@@ -686,7 +686,7 @@ export default function SettingsPage() {
                     href={`/revenue/${publicPage.slug}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="shrink-0 text-xs font-medium px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-gray-600"
+                    className="shrink-0 text-xs font-medium px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-400"
                   >
                     View →
                   </a>
@@ -694,11 +694,11 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-4">
                   <button
                     onClick={() => setPublicOpen((o) => !o)}
-                    className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors"
+                    className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 font-medium transition-colors"
                   >
                     {publicOpen ? "Close" : "Edit settings"}
                   </button>
-                  <button onClick={handleDeletePublicPage} className="text-xs text-red-400 hover:text-red-600 transition-colors">
+                  <button onClick={handleDeletePublicPage} className="text-xs text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-400 transition-colors">
                     Remove page
                   </button>
                 </div>
@@ -714,53 +714,53 @@ export default function SettingsPage() {
             )}
 
             {publicOpen && (
-              <div className="border border-gray-100 rounded-xl p-4 space-y-3 bg-gray-50">
+              <div className="border border-gray-100 dark:border-gray-800 rounded-xl p-4 space-y-3 bg-gray-50 dark:bg-gray-800">
                 {publicError && (
-                  <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{publicError}</p>
+                  <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 rounded-lg px-4 py-2">{publicError}</p>
                 )}
                 <div>
-                  <label className="text-xs font-medium text-gray-500 block mb-1.5">URL slug</label>
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">URL slug</label>
                   <div className="flex items-center">
-                    <span className="text-xs text-gray-400 bg-gray-100 border border-r-0 border-gray-200 px-3 py-2.5 rounded-l-lg">revenueintelligence.co.uk/revenue/</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 border border-r-0 border-gray-200 dark:border-gray-600 px-3 py-2.5 rounded-l-lg">revenueintelligence.co.uk/revenue/</span>
                     <input
                       type="text"
                       placeholder="your-company"
                       value={publicSlug}
                       onChange={(e) => setPublicSlug(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-r-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                      className="flex-1 border border-gray-200 dark:border-gray-600 rounded-r-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-600 bg-white dark:bg-gray-800"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-500 block mb-1.5">Company name</label>
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Company name</label>
                   <input
                     type="text"
                     placeholder="Acme Inc."
                     value={publicCompany}
                     onChange={(e) => setPublicCompany(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                    className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-600 bg-white dark:bg-gray-800"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-500 block mb-1.5">Tagline <span className="font-normal text-gray-300">(optional)</span></label>
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Tagline <span className="font-normal text-gray-300 dark:text-gray-600">(optional)</span></label>
                   <input
                     type="text"
                     placeholder="e.g. AI analytics for e-commerce"
                     value={publicTagline}
                     onChange={(e) => setPublicTagline(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                    className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-600 bg-white dark:bg-gray-800"
                   />
                 </div>
                 <div className="flex items-center justify-between py-1">
                   <div>
-                    <p className="text-sm text-gray-700 font-medium">Hide exact revenue numbers</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Shows growth % instead of £ values.</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">Hide exact revenue numbers</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Shows growth % instead of £ values.</p>
                   </div>
                   <button
                     role="switch"
                     aria-checked={publicHideRevenue}
                     onClick={() => setPublicHideRevenue((v) => !v)}
-                    className={`shrink-0 ml-4 relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${publicHideRevenue ? "bg-indigo-600" : "bg-gray-200"}`}
+                    className={`shrink-0 ml-4 relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${publicHideRevenue ? "bg-indigo-600" : "bg-gray-200 dark:bg-gray-700"}`}
                   >
                     <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${publicHideRevenue ? "translate-x-6" : "translate-x-1"}`} />
                   </button>
@@ -775,7 +775,7 @@ export default function SettingsPage() {
                   </button>
                   <button
                     onClick={() => { setPublicOpen(false); setPublicError(""); }}
-                    className="px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                    className="px-4 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
                   >
                     Cancel
                   </button>
@@ -785,37 +785,37 @@ export default function SettingsPage() {
           </div>
 
           {/* Slack Alerts */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 space-y-4">
             <div>
               <div className="flex items-center gap-2">
-                <Bell size={14} className="text-indigo-500" />
-                <p className="text-sm font-semibold text-gray-800">Slack Alerts</p>
+                <Bell size={14} className="text-indigo-500 dark:text-indigo-400" />
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Slack Alerts</p>
                 {slack?.stripe_webhook_id && (
-                  <span className="text-[10px] font-semibold bg-green-50 text-green-600 px-2 py-0.5 rounded-full">Live</span>
+                  <span className="text-[10px] font-semibold bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full">Live</span>
                 )}
               </div>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                 Real-time pings for new customers, cancellations, payments, and failures.
               </p>
             </div>
 
             {slack ? (
               <div className="space-y-3">
-                <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-4 py-2.5">
-                  <span className="text-green-500">✓</span>
-                  <span className="text-xs text-gray-500">Connected</span>
+                <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-lg px-4 py-2.5">
+                  <span className="text-green-500 dark:text-green-400">✓</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Connected</span>
                   {!slack.stripe_webhook_id && (
-                    <span className="text-xs text-amber-500 ml-2">· Real-time unavailable (restricted key)</span>
+                    <span className="text-xs text-amber-500 dark:text-amber-400 ml-2">· Real-time unavailable (restricted key)</span>
                   )}
                 </div>
                 <div className="flex items-center gap-4">
                   <button
                     onClick={() => setSlackOpen((o) => !o)}
-                    className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors"
+                    className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 font-medium transition-colors"
                   >
                     {slackOpen ? "Cancel" : "Update webhook URL"}
                   </button>
-                  <button onClick={handleRemoveSlack} className="text-xs text-red-400 hover:text-red-600 transition-colors">
+                  <button onClick={handleRemoveSlack} className="text-xs text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-400 transition-colors">
                     Disconnect
                   </button>
                 </div>
@@ -830,22 +830,22 @@ export default function SettingsPage() {
             )}
 
             {slackOpen && (
-              <div className="border border-gray-100 rounded-xl p-4 space-y-3 bg-gray-50">
+              <div className="border border-gray-100 dark:border-gray-800 rounded-xl p-4 space-y-3 bg-gray-50 dark:bg-gray-800">
                 {slackError && (
-                  <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{slackError}</p>
+                  <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 rounded-lg px-4 py-2">{slackError}</p>
                 )}
                 <div>
-                  <label className="text-xs font-medium text-gray-500 block mb-1.5">Slack Incoming Webhook URL</label>
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Slack Incoming Webhook URL</label>
                   <input
                     type="url"
                     placeholder="https://hooks.slack.com/services/..."
                     value={slackInput}
                     onChange={(e) => setSlackInput(e.target.value.trim())}
                     onKeyDown={(e) => e.key === "Enter" && handleSaveSlack()}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                    className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-600 bg-white dark:bg-gray-800"
                   />
-                  <p className="text-xs text-gray-400 mt-1.5">
-                    Create one in Slack: <span className="text-indigo-500">Apps → Incoming Webhooks → Add to Slack</span>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
+                    Create one in Slack: <span className="text-indigo-500 dark:text-indigo-400">Apps → Incoming Webhooks → Add to Slack</span>
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -858,7 +858,7 @@ export default function SettingsPage() {
                   </button>
                   <button
                     onClick={() => { setSlackOpen(false); setSlackError(""); }}
-                    className="px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                    className="px-4 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
                   >
                     Cancel
                   </button>
@@ -872,46 +872,46 @@ export default function SettingsPage() {
 
       {/* ── Account tab ── */}
       {activeTab === "account" && (
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
-          <p className="text-sm font-semibold text-gray-800">Account</p>
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 space-y-4">
+          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Account</p>
           <div>
-            <p className="text-xs text-gray-400 mb-0.5">Email</p>
-            <p className="text-sm text-gray-700">{accountEmail}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">Email</p>
+            <p className="text-sm text-gray-700 dark:text-gray-300">{accountEmail}</p>
           </div>
           {pwSuccess && (
-            <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-4 py-2">{pwSuccess}</p>
+            <p className="text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900/50 rounded-lg px-4 py-2">{pwSuccess}</p>
           )}
           {!pwOpen ? (
             <button
               onClick={() => { setPwOpen(true); setPwSuccess(""); }}
-              className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors"
+              className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 font-medium transition-colors"
             >
               Change password
             </button>
           ) : (
-            <div className="border border-gray-100 rounded-xl p-4 space-y-3 bg-gray-50">
+            <div className="border border-gray-100 dark:border-gray-800 rounded-xl p-4 space-y-3 bg-gray-50 dark:bg-gray-800">
               {pwError && (
-                <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2">{pwError}</p>
+                <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 rounded-lg px-4 py-2">{pwError}</p>
               )}
               <div>
-                <label className="text-xs font-medium text-gray-500 block mb-1.5">New password</label>
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">New password</label>
                 <input
                   type="password"
                   value={pwNew}
                   onChange={(e) => setPwNew(e.target.value)}
                   autoComplete="new-password"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                  className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-600 bg-white dark:bg-gray-800"
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-500 block mb-1.5">Confirm new password</label>
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Confirm new password</label>
                 <input
                   type="password"
                   value={pwConfirm}
                   onChange={(e) => setPwConfirm(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleChangePassword()}
                   autoComplete="new-password"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                  className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-600 bg-white dark:bg-gray-800"
                 />
               </div>
               <div className="flex gap-2">
@@ -924,7 +924,7 @@ export default function SettingsPage() {
                 </button>
                 <button
                   onClick={() => { setPwOpen(false); setPwError(""); setPwNew(""); setPwConfirm(""); }}
-                  className="px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                  className="px-4 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
                 >
                   Cancel
                 </button>

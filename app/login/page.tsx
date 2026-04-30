@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
@@ -114,7 +114,7 @@ export default function LoginPage() {
   ];
 
   return (
-    <main className="min-h-screen bg-white flex">
+    <main className="min-h-screen bg-white dark:bg-gray-900 flex">
 
       {/* Left panel — hidden on mobile */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-600 to-indigo-800 flex-col justify-between p-12 relative overflow-hidden">
@@ -149,34 +149,34 @@ export default function LoginPage() {
       </div>
 
       {/* Right panel — form */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-gray-50 lg:bg-white">
+      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-gray-50 dark:bg-gray-950 lg:bg-white lg:dark:bg-gray-900">
         <div className="w-full max-w-sm">
 
           {/* Mobile brand */}
           <div className="lg:hidden text-center mb-8">
-            <p className="text-xl font-bold text-gray-900">Revenue Intelligence</p>
-            <p className="text-sm text-gray-400 mt-1">Revenue Recovery</p>
+            <p className="text-xl font-bold text-gray-900 dark:text-gray-100">Revenue Intelligence</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Revenue Recovery</p>
           </div>
 
           {/* Email confirmed state */}
           {confirmed ? (
             <div className="text-center space-y-4">
-              <div className="w-14 h-14 bg-green-50 rounded-full flex items-center justify-center mx-auto">
+              <div className="w-14 h-14 bg-green-50 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Email confirmed!</h2>
-                <p className="text-sm text-gray-500 mt-1">Signing you in and taking you to setup…</p>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Email confirmed!</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Signing you in and taking you to setup…</p>
               </div>
               <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin mx-auto" />
             </div>
           ) : mode === "recovery" ? (
             <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-1">Set a new password</h2>
-              <p className="text-sm text-gray-400 mb-6">Choose something at least 8 characters long.</p>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">Set a new password</h2>
+              <p className="text-sm text-gray-400 dark:text-gray-500 mb-6">Choose something at least 8 characters long.</p>
 
-              {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2.5 mb-4">{error}</p>}
-              {info  && <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-4 py-2.5 mb-4">{info}</p>}
+              {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 rounded-lg px-4 py-2.5 mb-4">{error}</p>}
+              {info  && <p className="text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900/50 rounded-lg px-4 py-2.5 mb-4">{info}</p>}
 
               <div className="space-y-4">
                 <Field label="New password" type="password" placeholder="Min. 8 characters" value={newPassword} onChange={setNewPassword} onEnter={handleUpdatePassword} />
@@ -186,14 +186,14 @@ export default function LoginPage() {
             </div>
           ) : mode === "reset" ? (
             <div>
-              <button onClick={() => { setMode("login"); clearMessages(); }} className="text-xs text-gray-400 hover:text-gray-600 mb-6 flex items-center gap-1 transition-colors">
+              <button onClick={() => { setMode("login"); clearMessages(); }} className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 mb-6 flex items-center gap-1 transition-colors">
                 ← Back to login
               </button>
-              <h2 className="text-xl font-bold text-gray-900 mb-1">Reset your password</h2>
-              <p className="text-sm text-gray-400 mb-6">We'll send a reset link to your email.</p>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">Reset your password</h2>
+              <p className="text-sm text-gray-400 dark:text-gray-500 mb-6">We'll send a reset link to your email.</p>
 
-              {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2.5 mb-4">{error}</p>}
-              {info  && <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-4 py-2.5 mb-4">{info}</p>}
+              {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 rounded-lg px-4 py-2.5 mb-4">{error}</p>}
+              {info  && <p className="text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900/50 rounded-lg px-4 py-2.5 mb-4">{info}</p>}
 
               <div className="space-y-4">
                 <Field label="Email" type="email" placeholder="you@example.com" value={email} onChange={setEmail} onEnter={handleReset} />
@@ -202,25 +202,25 @@ export default function LoginPage() {
             </div>
           ) : (
             <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-1">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
                 {mode === "login" ? "Welcome back" : "Create your account"}
               </h2>
-              <p className="text-sm text-gray-400 mb-6">
+              <p className="text-sm text-gray-400 dark:text-gray-500 mb-6">
                 {mode === "login" ? "Log in to your Revenue Intelligence account." : "Find lost revenue in 2 minutes — free."}
               </p>
 
               {/* Login / Signup toggle */}
-              <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
+              <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 mb-6">
                 {(["login", "signup"] as const).map((m) => (
                   <button key={m} onClick={() => { setMode(m); clearMessages(); }}
-                    className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${mode === m ? "bg-white text-gray-900 shadow-sm" : "text-gray-400 hover:text-gray-600"}`}>
+                    className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${mode === m ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400"}`}>
                     {m === "login" ? "Log in" : "Sign up"}
                   </button>
                 ))}
               </div>
 
-              {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2.5 mb-4">{error}</p>}
-              {info  && <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-4 py-2.5 mb-4">{info}</p>}
+              {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 rounded-lg px-4 py-2.5 mb-4">{error}</p>}
+              {info  && <p className="text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900/50 rounded-lg px-4 py-2.5 mb-4">{info}</p>}
 
               <div className="space-y-4">
                 <Field label="Email" type="email" placeholder="you@example.com" value={email} onChange={setEmail}
@@ -228,10 +228,10 @@ export default function LoginPage() {
 
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-medium text-gray-500">Password</label>
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Password</label>
                     {mode === "login" && (
                       <button onClick={() => { setMode("reset"); clearMessages(); }}
-                        className="text-xs text-indigo-500 hover:text-indigo-700 transition-colors">
+                        className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 transition-colors">
                         Forgot password?
                       </button>
                     )}
@@ -243,7 +243,7 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && (mode === "login" ? handleLogin() : handleSignUp())}
                     autoComplete={mode === "login" ? "current-password" : "new-password"}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                    className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-600 bg-white dark:bg-gray-800"
                   />
                 </div>
 
@@ -271,14 +271,14 @@ function Field({ label, type, placeholder, value, onChange, onEnter }: {
 }) {
   return (
     <div>
-      <label className="text-xs font-medium text-gray-500 block mb-1.5">{label}</label>
+      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">{label}</label>
       <input
         type={type}
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && onEnter()}
-        className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+        className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-600 bg-white dark:bg-gray-800"
       />
     </div>
   );

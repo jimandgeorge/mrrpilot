@@ -98,14 +98,14 @@ export default function OnboardingPage() {
 
   if (step === "loading") {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-white flex">
+    <main className="min-h-screen bg-white dark:bg-gray-900 flex">
 
       {/* Left panel */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-600 to-indigo-800 flex-col justify-between p-12 relative overflow-hidden">
@@ -144,17 +144,17 @@ export default function OnboardingPage() {
         <div className="w-full max-w-sm">
 
           <div className="lg:hidden text-center mb-8">
-            <p className="text-xl font-bold text-gray-900">Revenue Intelligence</p>
+            <p className="text-xl font-bold text-gray-900 dark:text-gray-100">Revenue Intelligence</p>
           </div>
 
           {step === "done" ? (
             <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto">
-                <CheckCircle2 size={32} className="text-green-500" />
+              <div className="w-16 h-16 bg-green-50 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto">
+                <CheckCircle2 size={32} className="text-green-500 dark:text-green-400" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">{provider?.name} connected!</h2>
-                <p className="text-sm text-gray-500 mt-1">Taking you to your dashboard…</p>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{provider?.name} connected!</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Taking you to your dashboard…</p>
               </div>
               <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin mx-auto" />
             </div>
@@ -165,27 +165,27 @@ export default function OnboardingPage() {
                 <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center">
                   <span className="text-white text-xs font-bold">1</span>
                 </div>
-                <div className="h-px flex-1 bg-gray-200" />
-                <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
-                  <span className="text-gray-400 text-xs font-bold">2</span>
+                <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+                <div className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                  <span className="text-gray-400 dark:text-gray-500 text-xs font-bold">2</span>
                 </div>
               </div>
 
-              <h2 className="text-xl font-bold text-gray-900 mb-1">Choose your payment provider</h2>
-              <p className="text-sm text-gray-500 mb-6">Select the platform you use to collect subscription payments.</p>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">Choose your payment provider</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Select the platform you use to collect subscription payments.</p>
 
               <div className="space-y-3">
                 {PROVIDERS.map((p) => (
                   <button
                     key={p.id}
                     onClick={() => { setProviderId(p.id); setStep("connect"); setKeyInput(""); setError(""); }}
-                    className="w-full flex items-center justify-between border border-gray-200 rounded-xl px-4 py-3.5 hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors text-left group"
+                    className="w-full flex items-center justify-between border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3.5 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50/40 dark:hover:bg-indigo-900/20 transition-colors text-left group"
                   >
                     <div>
-                      <p className="text-sm font-semibold text-gray-900">{p.name}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{p.tagline}</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{p.name}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{p.tagline}</p>
                     </div>
-                    <ArrowRight size={15} className="text-gray-300 group-hover:text-indigo-400 transition-colors shrink-0" />
+                    <ArrowRight size={15} className="text-gray-300 dark:text-gray-600 group-hover:text-indigo-400 transition-colors shrink-0" />
                   </button>
                 ))}
               </div>
@@ -205,23 +205,23 @@ export default function OnboardingPage() {
 
               <button
                 onClick={() => { setStep("pick"); setKeyInput(""); setError(""); }}
-                className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors mb-5"
+                className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors mb-5"
               >
                 <ChevronLeft size={13} /> Back
               </button>
 
-              <h2 className="text-xl font-bold text-gray-900 mb-1">Connect {provider.name}</h2>
-              <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">Connect {provider.name}</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 leading-relaxed">
                 Paste your {provider.name} API key below. We use read-only access to pull your revenue data.
               </p>
 
               {error && (
-                <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-2.5 mb-4">{error}</p>
+                <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 rounded-lg px-4 py-2.5 mb-4">{error}</p>
               )}
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-medium text-gray-500 block mb-1.5">{provider.name} API Key</label>
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">{provider.name} API Key</label>
                   <input
                     type="password"
                     placeholder={provider.placeholder}
@@ -229,13 +229,13 @@ export default function OnboardingPage() {
                     onChange={(e) => setKeyInput(e.target.value.trim())}
                     onKeyDown={(e) => e.key === "Enter" && handleConnect()}
                     autoComplete="off"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                    className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-600 bg-white dark:bg-gray-800"
                     autoFocus
                   />
-                  <p className="text-xs text-gray-400 mt-2 leading-relaxed">
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 leading-relaxed">
                     Find it in {provider.hint}.{" "}
                     <a href={provider.hintUrl} target="_blank" rel="noopener noreferrer"
-                      className="text-indigo-500 inline-flex items-center gap-0.5">
+                      className="text-indigo-500 dark:text-indigo-400 inline-flex items-center gap-0.5">
                       Open <ExternalLink size={10} />
                     </a>
                   </p>
@@ -249,9 +249,9 @@ export default function OnboardingPage() {
                   {saving ? "Validating…" : <>{`Connect ${provider.name}`} <ArrowRight size={15} /></>}
                 </button>
 
-                <p className="text-center text-xs text-gray-400">
+                <p className="text-center text-xs text-gray-400 dark:text-gray-500">
                   You can add more providers later in{" "}
-                  <a href="/settings" className="text-indigo-400 hover:text-indigo-600">Settings</a>
+                  <a href="/settings" className="text-indigo-400 dark:text-indigo-300 hover:text-indigo-600 dark:hover:text-indigo-100">Settings</a>
                 </p>
               </div>
             </div>

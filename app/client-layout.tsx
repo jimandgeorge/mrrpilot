@@ -3,7 +3,8 @@
 import { ReactNode, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { LayoutDashboard, Users, Settings, LogOut, Menu, X, TrendingUp, Repeat2 } from "lucide-react";
+import { LayoutDashboard, Users, Settings, LogOut, Menu, X, TrendingUp, Repeat2, Sun, Moon } from "lucide-react";
+import { useTheme } from "next-themes";
 import { supabase } from "@/lib/supabase";
 
 export default function ClientLayout({ children }: { children: ReactNode }) {
@@ -14,6 +15,7 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
   const [userEmail, setUserEmail] = useState("");
   const [userInitial, setUserInitial] = useState("?");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -50,9 +52,9 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
   const sidebarContent = (
     <>
       {/* Brand */}
-      <div className="px-5 py-6 border-b border-gray-100">
-        <p className="text-sm font-bold tracking-tight text-gray-900">Revenue Intelligence</p>
-        <p className="text-[11px] text-gray-400 mt-0.5">Revenue Intelligence</p>
+      <div className="px-5 py-6 border-b border-gray-100 dark:border-gray-800">
+        <p className="text-sm font-bold tracking-tight text-gray-900 dark:text-gray-100">Revenue Intelligence</p>
+        <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Revenue Intelligence</p>
       </div>
 
       {/* Nav */}
@@ -63,8 +65,8 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
             <Link key={href} href={href} onClick={() => setSidebarOpen(false)}>
               <div className={`relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
                 active
-                  ? "text-indigo-700 font-semibold bg-indigo-50/70"
-                  : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+                  ? "text-indigo-700 dark:text-indigo-300 font-semibold bg-indigo-50/70 dark:bg-indigo-900/30"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
               }`}>
                 {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-indigo-500 rounded-full" />}
                 <Icon size={15} strokeWidth={active ? 2.2 : 1.8} />
@@ -76,28 +78,37 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
       </nav>
 
       {/* User + Logout */}
-      <div className="px-4 py-4 border-t border-gray-100">
+      <div className="px-4 py-4 border-t border-gray-100 dark:border-gray-800">
         <div className="flex items-center gap-2.5 mb-3">
-          <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-semibold text-indigo-600 shrink-0">
+          <div className="w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-xs font-semibold text-indigo-600 dark:text-indigo-400 shrink-0">
             {userInitial}
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] text-gray-400 truncate">{userEmail || "…"}</p>
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate">{userEmail || "…"}</p>
           </div>
         </div>
         <a
           href="mailto:brendan.mcintosh@outlook.com"
-          className="w-full flex items-center gap-2 text-xs text-gray-400 hover:text-indigo-500 transition-colors py-1 mb-1"
+          className="w-full flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors py-1 mb-1"
         >
           Questions? Get in touch
         </a>
-        <button
-          onClick={() => supabase.auth.signOut()}
-          className="w-full flex items-center gap-2 text-xs text-gray-500 hover:text-gray-700 transition-colors py-1"
-        >
-          <LogOut size={13} strokeWidth={1.8} />
-          Sign out
-        </button>
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors py-1"
+          >
+            <LogOut size={13} strokeWidth={1.8} />
+            Sign out
+          </button>
+          <button
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+            aria-label="Toggle dark mode"
+          >
+            {theme === "dark" ? <Sun size={13} strokeWidth={1.8} /> : <Moon size={13} strokeWidth={1.8} />}
+          </button>
+        </div>
       </div>
     </>
   );
@@ -107,11 +118,11 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
       {!isPublic && (
         <>
           {/* Mobile top bar */}
-          <div className="md:hidden fixed top-0 left-0 right-0 z-20 h-14 bg-white border-b border-gray-100 px-4 flex items-center justify-between shrink-0">
-            <p className="text-sm font-bold tracking-tight text-gray-900">Revenue Intelligence</p>
+          <div className="md:hidden fixed top-0 left-0 right-0 z-20 h-14 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 flex items-center justify-between shrink-0">
+            <p className="text-sm font-bold tracking-tight text-gray-900 dark:text-gray-100">Revenue Intelligence</p>
             <button
               onClick={() => setSidebarOpen((o) => !o)}
-              className="p-2 text-gray-500 hover:text-gray-900 transition-colors"
+              className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
               aria-label="Toggle menu"
             >
               {sidebarOpen ? <X size={18} strokeWidth={1.8} /> : <Menu size={18} strokeWidth={1.8} />}
@@ -128,7 +139,7 @@ export default function ClientLayout({ children }: { children: ReactNode }) {
 
           {/* Sidebar — desktop: static flex item; mobile: fixed drawer */}
           <div className={`
-            w-56 bg-white border-r border-gray-100 flex flex-col shrink-0
+            w-56 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 flex flex-col shrink-0
             fixed inset-y-0 left-0 z-40 transition-transform duration-200
             md:relative md:translate-x-0 md:transition-none
             ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}

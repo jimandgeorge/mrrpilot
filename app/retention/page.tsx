@@ -52,11 +52,11 @@ export default function RetentionPage() {
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto py-10 px-6">
-        <div className="h-6 bg-gray-100 rounded w-48 mb-2 animate-pulse" />
-        <div className="h-4 bg-gray-100 rounded w-72 mb-8 animate-pulse" />
+        <div className="h-6 bg-gray-100 dark:bg-gray-800 rounded w-48 mb-2 animate-pulse" />
+        <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded w-72 mb-8 animate-pulse" />
         <div className="space-y-2">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-10 bg-gray-100 rounded-lg animate-pulse" />
+            <div key={i} className="h-10 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" />
           ))}
         </div>
       </div>
@@ -66,7 +66,7 @@ export default function RetentionPage() {
   if (error) {
     return (
       <div className="max-w-5xl mx-auto py-10 px-6">
-        <p className="text-sm text-red-500">{error}</p>
+        <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
       </div>
     );
   }
@@ -74,8 +74,8 @@ export default function RetentionPage() {
   if (!cohorts.length) {
     return (
       <div className="max-w-5xl mx-auto py-10 px-6">
-        <h1 className="text-lg font-semibold text-gray-900 mb-1">Cohort Retention</h1>
-        <p className="text-sm text-gray-400">No paid invoice data found yet.</p>
+        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Cohort Retention</h1>
+        <p className="text-sm text-gray-400 dark:text-gray-500">No paid invoice data found yet.</p>
       </div>
     );
   }
@@ -83,24 +83,24 @@ export default function RetentionPage() {
   return (
     <div className="max-w-5xl mx-auto py-8 px-6">
       <div className="mb-6">
-        <h1 className="text-lg font-semibold text-gray-900">Cohort Retention</h1>
-        <p className="text-sm text-gray-400 mt-0.5">
+        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Cohort Retention</h1>
+        <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
           % of customers from each signup month still paying — by month since first payment
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-x-auto">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-x-auto">
         <table className="w-full text-xs border-collapse">
           <thead>
-            <tr className="border-b border-gray-100">
-              <th className="text-left px-4 py-3 text-gray-400 font-semibold whitespace-nowrap sticky left-0 bg-white z-10 min-w-[90px]">
+            <tr className="border-b border-gray-100 dark:border-gray-800">
+              <th className="text-left px-4 py-3 text-gray-400 dark:text-gray-500 font-semibold whitespace-nowrap sticky left-0 bg-white dark:bg-gray-900 z-10 min-w-[90px]">
                 Cohort
               </th>
-              <th className="px-3 py-3 text-gray-400 font-semibold whitespace-nowrap min-w-[52px]">
+              <th className="px-3 py-3 text-gray-400 dark:text-gray-500 font-semibold whitespace-nowrap min-w-[52px]">
                 Size
               </th>
               {columns.map((offset) => (
-                <th key={offset} className="px-3 py-3 text-gray-400 font-semibold whitespace-nowrap min-w-[52px]">
+                <th key={offset} className="px-3 py-3 text-gray-400 dark:text-gray-500 font-semibold whitespace-nowrap min-w-[52px]">
                   M{offset}
                 </th>
               ))}
@@ -108,11 +108,11 @@ export default function RetentionPage() {
           </thead>
           <tbody>
             {[...cohorts].reverse().map((cohort, i) => (
-              <tr key={i} className="border-b border-gray-50 last:border-0">
-                <td className="px-4 py-2.5 font-medium text-gray-700 whitespace-nowrap sticky left-0 bg-white z-10">
+              <tr key={i} className="border-b border-gray-50 dark:border-gray-800 last:border-0">
+                <td className="px-4 py-2.5 font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap sticky left-0 bg-white dark:bg-gray-900 z-10">
                   {cohort.month}
                 </td>
-                <td className="px-3 py-2.5 text-center text-gray-400">
+                <td className="px-3 py-2.5 text-center text-gray-400 dark:text-gray-500">
                   {cohort.size}
                 </td>
                 {columns.map((offset) => {
@@ -124,7 +124,7 @@ export default function RetentionPage() {
                           {pct}%
                         </div>
                       ) : (
-                        <div className="text-center text-gray-200 py-1.5">—</div>
+                        <div className="text-center text-gray-200 dark:text-gray-700 py-1.5">—</div>
                       )}
                     </td>
                   );
@@ -133,11 +133,11 @@ export default function RetentionPage() {
             ))}
 
             {/* Average row */}
-            <tr className="border-t-2 border-gray-200 bg-gray-50">
-              <td className="px-4 py-2.5 font-semibold text-gray-600 sticky left-0 bg-gray-50 z-10">
+            <tr className="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+              <td className="px-4 py-2.5 font-semibold text-gray-600 dark:text-gray-400 sticky left-0 bg-gray-50 dark:bg-gray-800 z-10">
                 Average
               </td>
-              <td className="px-3 py-2.5 text-center text-gray-400">—</td>
+              <td className="px-3 py-2.5 text-center text-gray-400 dark:text-gray-500">—</td>
               {columns.map((offset) => {
                 const pct = avgRetention[offset];
                 return (
@@ -147,7 +147,7 @@ export default function RetentionPage() {
                         {pct}%
                       </div>
                     ) : (
-                      <div className="text-center text-gray-200 py-1.5">—</div>
+                      <div className="text-center text-gray-200 dark:text-gray-700 py-1.5">—</div>
                     )}
                   </td>
                 );
@@ -157,7 +157,7 @@ export default function RetentionPage() {
         </table>
       </div>
 
-      <p className="text-xs text-gray-300 mt-4 text-center">
+      <p className="text-xs text-gray-300 dark:text-gray-600 mt-4 text-center">
         M0 = signup month · Based on paid invoices · Annual plans show as active in payment months only
       </p>
     </div>
